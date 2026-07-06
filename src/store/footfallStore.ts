@@ -280,7 +280,7 @@ export const useFootfallStore = create<FootfallState>((set, get) => ({
             'X-Title': 'HealthFlow AI'
           },
           body: JSON.stringify({
-            model: "openai/gpt-oss-120b:free",
+            model: "meta-llama/llama-3.3-70b-instruct:free",
             messages: [{ role: "user", content: promptText }],
             max_tokens: 1000
           })
