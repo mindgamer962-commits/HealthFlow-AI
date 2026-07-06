@@ -741,7 +741,7 @@ export const useMedicineStore = create<MedicineState>((set, get) => ({
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${openRouterKey}`,
-            'HTTP-Referer': 'http://localhost:5173',
+            'HTTP-Referer': window.location.origin,
             'X-Title': 'HealthFlow AI'
           },
           body: JSON.stringify({
