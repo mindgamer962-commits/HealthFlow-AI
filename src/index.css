@@ -1,0 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --brand-blue: 11 78 154; /* #0B4E9A */
+    --brand-orange: 234 108 19; /* #EA6C13 */
+    --bg-light: 250 249 246; /* #FAF9F6 */
+    
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: rgb(var(--bg-light));
+    color: #1e293b;
+  }
+
+  body {
+    @apply bg-bg-light text-slate-800 transition-colors duration-200 antialiased m-0 p-0 min-h-screen overflow-x-hidden;
+  }
+
+  /* Custom Scrollbar styled for a premium web dashboard */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded-full hover:bg-slate-400;
+  }
+}
+
+/* Glassmorphism utility - keeping it subtle as requested */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Custom transitions and animations */
+.transition-all-ease {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Custom dashboard scroll-container height helper */
+.dashboard-content-height {
+  height: calc(100vh - 64px);
+}

@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper: Verify if user is signed in
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Helper: Verify if user has the District Health Administrator role
+    function isAdmin() {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'District Health Administrator';
+    }
+
+    // Users Collection rules
+    match /users/{userId} {
+      // Admin can manage all profiles; users can only read and update their own document
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if isAdmin();
+      allow update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Health Centers Collection rules
+    match /health_centers/{centerId} {
+      // All authenticated users can query center capacities, but only admin can manage them
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Medicines master catalog rules
+    match /medicines/{medicineId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Medicine Stock records rules
+    match /medicine_stock/{stockId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // Stock Transactions rules
+    match /stock_transactions/{transactionId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // Stock Transfer Requests rules
+    match /stock_transfer_requests/{requestId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // Stock Predictions rules
+    match /stock_predictions/{predictionId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // Doctors and Roster rules
+    match /doctors/{doctorId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // Lab Tests status rules
+    match /lab_tests/{testId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // Daily Metrics history rules
+    match /daily_metrics/{metricId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+  }
+}

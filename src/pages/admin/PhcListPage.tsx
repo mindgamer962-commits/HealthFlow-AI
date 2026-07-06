@@ -1,0 +1,1299 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Search,
+  Plus,
+  Filter,
+  ArrowRight,
+  Pill,
+  Bed,
+  UserCheck,
+  FlaskConical,
+  Building2,
+  Phone,
+  Mail,
+  User,
+  Clock,
+  MapPin,
+  Trash2,
+  Archive,
+  RotateCcw,
+  Edit,
+  Download,
+  Printer,
+  X,
+  FileSpreadsheet,
+  CheckCircle2
+} from 'lucide-react';
+import { usePhcStore } from '../../store/phcStore';
+import { useAuthStore } from '../../store/authStore';
+import { useUIStore } from '../../store/uiStore';
+import { useUserStore } from '../../store/userStore';
+import { HealthCenter, PHC } from '../../types';
+
+export const PhcListPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { setSelectedPHCId } = useUIStore();
+  const { user } = useAuthStore();
+  const {
+    centers,
+    subscribeToCenters,
+    createCenter,
+    updateCenter,
+    deleteCenter,
+    archiveCenter,
+    restoreCenter,
+    loading
+  } = usePhcStore();
+
+  // Load centers on component mount
+  useEffect(() => {
+    const unsubscribe = subscribeToCenters();
+    return () => unsubscribe();
+  }, []);
+
+  // Filter & Search states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [talukaFilter, setTalukaFilter] = useState('all');
+  const [viewArchived, setViewArchived] = useState(false);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
+
+  // Modal triggers
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedCenter, setSelectedCenter] = useState<PHC | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [credentialsModal, setCredentialsModal] = useState<{ email: string; password: string; name: string } | null>(null);
+
+  // Form states (Add)
+  const [addName, setAddName] = useState('');
+  const [addType, setAddType] = useState<'PHC' | 'CHC'>('PHC');
+  const [addDistrict, setAddDistrict] = useState('East Khasi Hills');
+  const [addTaluka, setAddTaluka] = useState('');
+  const [addVillage, setAddVillage] = useState('');
+  const [addAddress, setAddAddress] = useState('');
+  const [addLat, setAddLat] = useState(25.45);
+  const [addLng, setAddLng] = useState(91.75);
+  const [addPhone, setAddPhone] = useState('');
+  const [addEmail, setAddEmail] = useState('');
+  const [addMoName, setAddMoName] = useState('');
+  const [addMoPhone, setAddMoPhone] = useState('');
+  const [addDocs, setAddDocs] = useState(2);
+  const [addNurses, setAddNurses] = useState(4);
+  const [addBeds, setAddBeds] = useState(10);
+  const [addStatus, setAddStatus] = useState<'Healthy' | 'Needs Attention' | 'Critical'>('Healthy');
+  const [addOpenTime, setAddOpenTime] = useState('09:00 AM');
+  const [addCloseTime, setAddCloseTime] = useState('04:00 PM');
+
+  // Staff Account Fields
+  const [staffName, setStaffName] = useState('');
+  const [staffEmail, setStaffEmail] = useState('');
+  const [staffPassword, setStaffPassword] = useState('');
+  const [staffPhone, setStaffPhone] = useState('');
+
+  // Form states (Edit)
+  const [editName, setEditName] = useState('');
+  const [editType, setEditType] = useState<'PHC' | 'CHC'>('PHC');
+  const [editTaluka, setEditTaluka] = useState('');
+  const [editVillage, setEditVillage] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editLat, setEditLat] = useState(25.45);
+  const [editLng, setEditLng] = useState(91.75);
+  const [editPhone, setEditPhone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editMoName, setEditMoName] = useState('');
+  const [editMoPhone, setEditMoPhone] = useState('');
+  const [editDocs, setEditDocs] = useState(2);
+  const [editNurses, setEditNurses] = useState(4);
+  const [editBeds, setEditBeds] = useState(10);
+  const [editStatus, setEditStatus] = useState<'Healthy' | 'Needs Attention' | 'Critical'>('Healthy');
+  const [editOpenTime, setEditOpenTime] = useState('09:00 AM');
+  const [editCloseTime, setEditCloseTime] = useState('04:00 PM');
+
+  // Helper trigger for UI toast notifications
+  const triggerToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Filter centers list based on permissions, search, and filter parameters
+  const processedCenters = useMemo(() => {
+    return centers.filter((c) => {
+      // 1. Role restrictions: PHC/CHC Staff only sees their assigned node
+      if ((user?.role === 'PHC Staff' || user?.role === 'CHC Staff') && c.centerId !== user.phcId) {
+        return false;
+      }
+
+      // 2. Archive states
+      const matchesArchive = viewArchived ? c.isArchived === true : !c.isArchived;
+
+      // 3. Search parameters
+      const matchesSearch =
+        c.centerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.district.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.village.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.medicalOfficerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.status.toLowerCase().includes(searchTerm.toLowerCase());
+
+      // 4. Nested selectors
+      const matchesType = typeFilter === 'all' ? true : c.centerType === typeFilter;
+      const matchesStatus = statusFilter === 'all' ? true : c.status === statusFilter;
+      const matchesTaluka = talukaFilter === 'all' ? true : c.taluka.toLowerCase() === talukaFilter.toLowerCase();
+
+      return matchesArchive && matchesSearch && matchesType && matchesStatus && matchesTaluka;
+    });
+  }, [centers, user, viewArchived, searchTerm, typeFilter, statusFilter, talukaFilter]);
+
+  // Aggregate calculations for Dashboard summary counters
+  const summary = useMemo(() => {
+    const total = processedCenters.length;
+    const healthy = processedCenters.filter(c => c.status === 'Healthy').length;
+    const critical = processedCenters.filter(c => c.status === 'Critical').length;
+    const doctors = processedCenters.reduce((sum, c) => sum + c.totalDoctors, 0);
+    const beds = processedCenters.reduce((sum, c) => sum + c.totalBeds, 0);
+    const patients = processedCenters.reduce((sum, c) => sum + c.currentPatients, 0);
+
+    return { total, healthy, critical, doctors, beds, patients };
+  }, [processedCenters]);
+
+  // Unique list of Talukas for filter select options
+  const uniqueTalukas = useMemo(() => {
+    const list = new Set<string>();
+    centers.forEach(c => {
+      if (c.taluka) list.add(c.taluka);
+    });
+    return Array.from(list);
+  }, [centers]);
+
+  // Paginated list output
+  const paginatedCenters = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return processedCenters.slice(start, start + itemsPerPage);
+  }, [processedCenters, currentPage]);
+
+  const totalPages = Math.ceil(processedCenters.length / itemsPerPage) || 1;
+
+  // Open Edit Dialog
+  const openEditDialog = (c: PHC) => {
+    setSelectedCenter(c);
+    setEditName(c.centerName);
+    setEditType(c.centerType);
+    setEditTaluka(c.taluka || '');
+    setEditVillage(c.village || '');
+    setEditAddress(c.address || '');
+    setEditLat(c.latitude || 25.45);
+    setEditLng(c.longitude || 91.75);
+    setEditPhone(c.phoneNumber || '');
+    setEditEmail(c.email || '');
+    setEditMoName(c.medicalOfficerName || '');
+    setEditMoPhone(c.medicalOfficerPhone || '');
+    setEditDocs(c.totalDoctors || 2);
+    setEditNurses(c.totalNurses || 4);
+    setEditBeds(c.totalBeds || 10);
+    setEditStatus(c.status);
+    setEditOpenTime(c.openingTime || '09:00 AM');
+    setEditCloseTime(c.closingTime || '04:00 PM');
+    setShowEditModal(true);
+  };
+
+  // Add submission handler
+  const handleAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const newPhcId = await createCenter({
+        centerName: addName,
+        centerType: addType,
+        district: addDistrict,
+        taluka: addTaluka,
+        village: addVillage,
+        address: addAddress,
+        latitude: Number(addLat),
+        longitude: Number(addLng),
+        phoneNumber: addPhone,
+        email: addEmail,
+        medicalOfficerName: addMoName,
+        medicalOfficerPhone: addMoPhone,
+        totalDoctors: Number(addDocs),
+        totalNurses: Number(addNurses),
+        totalStaff: Number(addDocs) + Number(addNurses) + 4,
+        totalBeds: Number(addBeds),
+        icuBeds: Math.round(Number(addBeds) * 0.1),
+        emergencyBeds: Math.round(Number(addBeds) * 0.2),
+        currentPatients: 0,
+        status: addStatus,
+        openingTime: addOpenTime,
+        closingTime: addCloseTime
+      });
+
+      // Create new user of role PHC Staff or CHC Staff using form input details
+      const userStore = useUserStore.getState();
+      await userStore.addUser({
+        name: staffName,
+        email: staffEmail,
+        password: staffPassword,
+        role: addType === 'PHC' ? 'PHC Staff' : 'CHC Staff',
+        phcId: newPhcId,
+        healthCenterId: newPhcId,
+        districtId: addDistrict,
+        phone: staffPhone || '+91-94361-00000',
+        isActive: true,
+        status: 'Active'
+      } as any);
+
+      // Show credentials dialog modal
+      setCredentialsModal({
+        name: addName,
+        email: staffEmail,
+        password: staffPassword
+      });
+
+      triggerToast("New Health Center node and staff login created successfully!");
+      setShowAddModal(false);
+      
+      // Reset fields
+      setAddName('');
+      setAddTaluka('');
+      setAddVillage('');
+      setAddAddress('');
+      setAddPhone('');
+      setAddEmail('');
+      setAddMoName('');
+      setAddMoPhone('');
+      setStaffName('');
+      setStaffEmail('');
+      setStaffPassword('');
+      setStaffPhone('');
+    } catch (err: any) {
+      triggerToast(err.message || "Failed to create center.");
+    }
+  };
+
+  // Edit submission handler
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCenter) return;
+
+    try {
+      await updateCenter(selectedCenter.centerId, {
+        centerName: editName,
+        centerType: editType,
+        taluka: editTaluka,
+        village: editVillage,
+        address: editAddress,
+        latitude: Number(editLat),
+        longitude: Number(editLng),
+        phoneNumber: editPhone,
+        email: editEmail,
+        medicalOfficerName: editMoName,
+        medicalOfficerPhone: editMoPhone,
+        totalDoctors: Number(editDocs),
+        totalNurses: Number(editNurses),
+        totalBeds: Number(editBeds),
+        status: editStatus,
+        openingTime: editOpenTime,
+        closingTime: editCloseTime
+      });
+
+      triggerToast("Facility node configuration updated successfully!");
+      setShowEditModal(false);
+      setSelectedCenter(null);
+    } catch (err: any) {
+      triggerToast(err.message || "Failed to update center.");
+    }
+  };
+
+  // CSV Export Trigger
+  const handleCSVExport = () => {
+    const headers = [
+      'Center ID,Name,Type,District,Taluka,Village,Address,Medical Officer,Phone,Email,Doctors,Nurses,Beds,Patients,Status'
+    ];
+    const rows = processedCenters.map(c => [
+      c.centerId,
+      `"${c.centerName}"`,
+      c.centerType,
+      c.district,
+      c.taluka,
+      c.village,
+      `"${c.address}"`,
+      `"${c.medicalOfficerName}"`,
+      c.phoneNumber,
+      c.email,
+      c.totalDoctors,
+      c.totalNurses,
+      c.totalBeds,
+      c.currentPatients,
+      c.status
+    ].join(','));
+    
+    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `HealthCenters_Audit_List_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    triggerToast("CSV Sheet generated successfully!");
+  };
+
+  // print list
+  const handlePrint = () => {
+    window.print();
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 p-4 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-lg flex items-center gap-2">
+          <CheckCircle2 className="h-4.5 w-4.5 text-emerald-400" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Header Panel */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 no-print">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900 leading-none">
+            District Medical Facilities Directory
+          </h2>
+          <p className="text-sm text-slate-500 mt-1.5">
+            Administer primary and community health nodes, inspect beds capacities, and assign medical officers.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Print & CSV buttons */}
+          <button
+            onClick={handleCSVExport}
+            className="flex items-center gap-1 px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-all shadow-sm"
+            title="Export CSV"
+          >
+            <Download className="h-4 w-4" />
+            <span>CSV</span>
+          </button>
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-1 px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl transition-all shadow-sm"
+            title="Print List"
+          >
+            <Printer className="h-4 w-4" />
+            <span>Print</span>
+          </button>
+
+          {/* Add Facility Button */}
+          {user?.role === 'District Health Administrator' && (
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-1.5 px-4 py-2 bg-brand-blue hover:bg-brand-darkBlue text-white font-bold text-xs rounded-xl transition-all-ease shadow"
+            >
+              <Plus className="h-4 w-4" />
+              Add Facility
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Summary counters section */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        {[
+          { label: 'Total Centers', val: summary.total, color: 'text-brand-blue bg-blue-50' },
+          { label: 'Healthy Nodes', val: summary.healthy, color: 'text-emerald-700 bg-emerald-50' },
+          { label: 'Critical Alert', val: summary.critical, color: 'text-red-750 bg-red-105' },
+          { label: 'Total Physicians', val: summary.doctors, color: 'text-pink-700 bg-pink-50' },
+          { label: 'Total Bed Capacity', val: summary.beds, color: 'text-purple-700 bg-purple-50' },
+          { label: 'OPD Patients Today', val: summary.patients, color: 'text-brand-orange bg-orange-50' }
+        ].map((item, i) => (
+          <div key={i} className="bg-white border rounded-apex p-4 flex flex-col justify-between shadow-apex-sm">
+            <span className="text-[10px] uppercase font-bold text-slate-400 block">{item.label}</span>
+            <span className={`text-xl font-extrabold mt-2.5 px-3 py-0.5 rounded-xl self-start ${item.color}`}>
+              {item.val}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Filter and Search controls */}
+      <div className="flex flex-col lg:flex-row gap-4 bg-white p-4 border border-slate-200 rounded-apex shadow-apex-sm no-print">
+        {/* Search Input */}
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search by facility name, village, officer, or status..."
+            className="w-full pl-9 pr-4 py-2.5 text-xs bg-slate-55 border border-slate-200 rounded-xl focus:bg-white focus:outline-none text-slate-800"
+          />
+        </div>
+
+        {/* Filters */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Facility Type */}
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="bg-slate-55 border border-slate-200 text-xs font-semibold text-slate-700 rounded-xl px-3 py-2 cursor-pointer focus:outline-none"
+          >
+            <option value="all">All Facility Types</option>
+            <option value="PHC">Primary Health Centre (PHC)</option>
+            <option value="CHC">Community Health Centre (CHC)</option>
+          </select>
+
+          {/* Status */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="bg-slate-55 border border-slate-200 text-xs font-semibold text-slate-700 rounded-xl px-3 py-2 cursor-pointer focus:outline-none"
+          >
+            <option value="all">All Alert Statuses</option>
+            <option value="Healthy">Healthy Nodes</option>
+            <option value="Needs Attention">Needs Attention</option>
+            <option value="Critical">Critical</option>
+          </select>
+
+          {/* Taluka */}
+          <select
+            value={talukaFilter}
+            onChange={(e) => setTalukaFilter(e.target.value)}
+            className="bg-slate-55 border border-slate-200 text-xs font-semibold text-slate-700 rounded-xl px-3 py-2 cursor-pointer focus:outline-none"
+          >
+            <option value="all">All Talukas</option>
+            {uniqueTalukas.map((t, idx) => (
+              <option key={idx} value={t}>{t}</option>
+            ))}
+          </select>
+
+          {/* Archived Toggle */}
+          {user?.role === 'District Health Administrator' && (
+            <button
+              onClick={() => setViewArchived(!viewArchived)}
+              className={`flex items-center justify-center gap-1.5 text-xs font-bold border rounded-xl px-3 py-2 transition-all cursor-pointer ${
+                viewArchived ? 'bg-brand-orange/10 border-brand-orange text-brand-orange' : 'bg-slate-55 border-slate-200 text-slate-650 hover:bg-slate-100'
+              }`}
+            >
+              <Archive className="h-4 w-4" />
+              <span>{viewArchived ? "View Active" : "View Archived"}</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Facilities Grid list */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {paginatedCenters.map((c) => (
+          <div
+            key={c.centerId}
+            className="bg-white border border-slate-200 rounded-apex shadow-apex-sm p-6 flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden group"
+          >
+            {/* Status colored side accent bar */}
+            <div className={`absolute left-0 top-0 bottom-0 w-1 ${
+              c.status === 'Critical'
+                ? 'bg-status-critical'
+                : c.status === 'Needs Attention'
+                ? 'bg-status-warning'
+                : 'bg-status-success'
+            }`} />
+
+            <div className="space-y-4 pl-1.5">
+              {/* Card Header */}
+              <div className="flex justify-between items-start gap-2">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] uppercase font-extrabold px-2 py-0.5 rounded bg-slate-100 text-slate-500">
+                      {c.centerType}
+                    </span>
+                    <span
+                      className={`text-[9px] uppercase font-extrabold px-2.5 py-0.5 rounded-full ${
+                        c.status === 'Critical'
+                          ? 'bg-status-critical/10 text-status-critical'
+                          : c.status === 'Needs Attention'
+                          ? 'bg-status-warning/10 text-status-warning'
+                          : 'bg-status-success/10 text-status-success'
+                      }`}
+                    >
+                      {c.status}
+                    </span>
+                  </div>
+                  <h4 className="font-extrabold text-slate-800 text-sm mt-2 block">{c.centerName}</h4>
+                </div>
+              </div>
+
+              {/* General details list */}
+              <div className="space-y-2 text-xs text-slate-500 font-medium">
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="h-4 w-4 text-slate-400 shrink-0" />
+                  <span className="truncate">{c.village}, {c.taluka}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <User className="h-4 w-4 text-slate-400 shrink-0" />
+                  <span className="truncate">MO: {c.medicalOfficerName}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Clock className="h-4 w-4 text-slate-400 shrink-0" />
+                  <span>Hrs: {c.openingTime} - {c.closingTime}</span>
+                </div>
+              </div>
+
+              {/* Ratios row */}
+              <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100 text-center">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] text-slate-450 uppercase block font-bold">Docs</span>
+                  <span className="font-bold text-slate-800 text-xs">
+                    {c.doctorsPresent || c.totalDoctors}/{c.totalDoctors}
+                  </span>
+                </div>
+                <div className="space-y-0.5">
+                  <span className="text-[10px] text-slate-450 uppercase block font-bold">Beds</span>
+                  <span className="font-bold text-slate-800 text-xs">
+                    {c.bedsOccupied || 0}/{c.totalBeds}
+                  </span>
+                </div>
+                <div className="space-y-0.5">
+                  <span className="text-[10px] text-slate-450 uppercase block font-bold">Patients</span>
+                  <span className="font-bold text-brand-orange text-xs">
+                    {c.currentPatients}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Inspect / Action Buttons */}
+            <div className="flex items-center gap-2 pt-4 border-t mt-4 pl-1.5">
+              <button
+                onClick={() => {
+                  setSelectedPHCId(c.centerId);
+                  navigate(`/phcs/${c.centerId}`);
+                }}
+                className="flex-1 flex items-center justify-center gap-1 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-650 hover:text-slate-850 font-bold text-xs rounded-xl transition-all"
+              >
+                Inspect Center
+                <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+
+              {/* Admin modifications buttons */}
+              {user?.role === 'District Health Administrator' && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => openEditDialog(c)}
+                    className="p-2 text-slate-400 hover:text-brand-blue hover:bg-slate-50 border rounded-xl"
+                    title="Edit Node"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+
+                  {c.isArchived ? (
+                    <button
+                      onClick={async () => {
+                        await restoreCenter(c.centerId);
+                        triggerToast("Center restored successfully.");
+                      }}
+                      className="p-2 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 border rounded-xl"
+                      title="Restore Center"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        await archiveCenter(c.centerId);
+                        triggerToast("Center archived successfully.");
+                      }}
+                      className="p-2 text-slate-400 hover:text-brand-orange hover:bg-orange-50 border rounded-xl"
+                      title="Archive Center"
+                    >
+                      <Archive className="h-4 w-4" />
+                    </button>
+                  )}
+
+                  <button
+                    onClick={async () => {
+                      if (window.confirm(`Delete ${c.centerName} permanent?`)) {
+                        await deleteCenter(c.centerId);
+                        triggerToast("Center deleted permanent.");
+                      }
+                    }}
+                    className="p-2 text-slate-400 hover:text-red-750 hover:bg-red-50 border rounded-xl"
+                    title="Delete Facility"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {processedCenters.length === 0 && (
+          <div className="col-span-full py-12 text-center text-slate-400 font-bold text-sm bg-white border rounded-apex">
+            No health facilities found matching search criteria.
+          </div>
+        )}
+      </div>
+
+      {/* Pagination footer */}
+      {processedCenters.length > itemsPerPage && (
+        <div className="flex justify-between items-center text-xs text-slate-500 font-medium py-4 no-print">
+          <span>
+            Showing {Math.min(processedCenters.length, (currentPage - 1) * itemsPerPage + 1)}-
+            {Math.min(processedCenters.length, currentPage * itemsPerPage)} of{' '}
+            {processedCenters.length} Facilities
+          </span>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="p-1 border rounded-lg hover:bg-slate-100 disabled:opacity-50"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="font-bold text-slate-700">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="p-1 border rounded-lg hover:bg-slate-100 disabled:opacity-50"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ADD MODAL */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="w-full max-w-2xl bg-white border border-slate-200 rounded-apex shadow-apex p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="font-bold text-base text-slate-800">Add New Medical Facility</h3>
+              <button onClick={() => setShowAddModal(false)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddSubmit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Center Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={addName}
+                    onChange={(e) => setAddName(e.target.value)}
+                    placeholder="e.g. Sohryngkham PHC"
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Center Type</label>
+                  <select
+                    value={addType}
+                    onChange={(e) => setAddType(e.target.value as 'PHC' | 'CHC')}
+                    className="w-full border rounded-xl px-2.5 py-2 cursor-pointer"
+                  >
+                    <option value="PHC">Primary Health Centre (PHC)</option>
+                    <option value="CHC">Community Health Centre (CHC)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Taluka / Block</label>
+                  <input
+                    type="text"
+                    required
+                    value={addTaluka}
+                    onChange={(e) => setAddTaluka(e.target.value)}
+                    placeholder="e.g. Mawryngkneng"
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Village</label>
+                  <input
+                    type="text"
+                    required
+                    value={addVillage}
+                    onChange={(e) => setAddVillage(e.target.value)}
+                    placeholder="e.g. Sohryngkham"
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1 md:col-span-2">
+                  <label className="font-bold text-slate-500">Full Address</label>
+                  <input
+                    type="text"
+                    required
+                    value={addAddress}
+                    onChange={(e) => setAddAddress(e.target.value)}
+                    placeholder="Enter complete physical address details"
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Latitude Coordinate</label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    required
+                    value={addLat}
+                    onChange={(e) => setAddLat(Number(e.target.value))}
+                    className="w-full px-3 py-2 border rounded-xl font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Longitude Coordinate</label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    required
+                    value={addLng}
+                    onChange={(e) => setAddLng(Number(e.target.value))}
+                    className="w-full px-3 py-2 border rounded-xl font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Center Phone Number</label>
+                  <input
+                    type="text"
+                    required
+                    value={addPhone}
+                    onChange={(e) => setAddPhone(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Center Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    value={addEmail}
+                    onChange={(e) => setAddEmail(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Medical Officer Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={addMoName}
+                    onChange={(e) => setAddMoName(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Medical Officer Phone</label>
+                  <input
+                    type="text"
+                    required
+                    value={addMoPhone}
+                    onChange={(e) => setAddMoPhone(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Scheduled Doctors Count</label>
+                  <input
+                    type="number"
+                    value={addDocs}
+                    onChange={(e) => setAddDocs(Number(e.target.value))}
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Beds Capacity</label>
+                  <input
+                    type="number"
+                    value={addBeds}
+                    onChange={(e) => setAddBeds(Number(e.target.value))}
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Opening Time</label>
+                  <input
+                    type="text"
+                    value={addOpenTime}
+                    onChange={(e) => setAddOpenTime(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Closing Time</label>
+                  <input
+                    type="text"
+                    value={addCloseTime}
+                    onChange={(e) => setAddCloseTime(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Status Check</label>
+                  <select
+                    value={addStatus}
+                    onChange={(e) => setAddStatus(e.target.value as any)}
+                    className="w-full border rounded-xl px-2.5 py-2 cursor-pointer"
+                  >
+                    <option value="Healthy">Healthy</option>
+                    <option value="Needs Attention">Needs Attention</option>
+                    <option value="Critical">Critical</option>
+                  </select>
+                </div>
+
+                {/* PHC Staff Account Section */}
+                <div className="md:col-span-2 border-t pt-4 mt-2">
+                  <h4 className="font-extrabold text-slate-800 text-xs uppercase tracking-widest flex items-center gap-1.5">
+                    <User className="h-4 w-4 text-brand-blue" />
+                    PHC Staff Account
+                  </h4>
+                  <p className="text-[10px] text-slate-400 font-medium mt-1">
+                    Assign a staff operator profile and login credentials for this facility node.
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Staff Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={staffName}
+                    onChange={(e) => setStaffName(e.target.value)}
+                    placeholder="e.g. John Mawlong"
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Staff Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={staffEmail}
+                    onChange={(e) => setStaffEmail(e.target.value)}
+                    placeholder="e.g. staff.mawphlang@healthflow.gov.in"
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Temporary Password</label>
+                  <input
+                    type="text"
+                    required
+                    value={staffPassword}
+                    onChange={(e) => setStaffPassword(e.target.value)}
+                    placeholder="Enter temporary password"
+                    className="w-full px-3 py-2 border rounded-xl font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Phone Number</label>
+                  <input
+                    type="text"
+                    required
+                    value={staffPhone}
+                    onChange={(e) => setStaffPhone(e.target.value)}
+                    placeholder="e.g. +91-98630-44567"
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Role</label>
+                  <input
+                    type="text"
+                    disabled
+                    value={addType === 'PHC' ? 'PHC Staff' : 'CHC Staff'}
+                    className="w-full px-3 py-2 border rounded-xl bg-slate-50 font-bold text-slate-500 cursor-not-allowed"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 border-t flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2 border rounded-xl hover:bg-slate-50 text-slate-650 font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-brand-blue hover:bg-brand-darkBlue text-white font-bold rounded-xl shadow"
+                >
+                  Save Facility Node
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT MODAL */}
+      {showEditModal && selectedCenter && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="w-full max-w-2xl bg-white border border-slate-200 rounded-apex shadow-apex p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="font-bold text-base text-slate-800">Edit Facility Configuration</h3>
+              <button onClick={() => {
+                setShowEditModal(false);
+                setSelectedCenter(null);
+              }} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Center Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Center Type</label>
+                  <select
+                    value={editType}
+                    onChange={(e) => setEditType(e.target.value as 'PHC' | 'CHC')}
+                    className="w-full border rounded-xl px-2.5 py-2 cursor-pointer"
+                  >
+                    <option value="PHC">Primary Health Centre (PHC)</option>
+                    <option value="CHC">Community Health Centre (CHC)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Taluka / Block</label>
+                  <input
+                    type="text"
+                    required
+                    value={editTaluka}
+                    onChange={(e) => setEditTaluka(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Village</label>
+                  <input
+                    type="text"
+                    required
+                    value={editVillage}
+                    onChange={(e) => setEditVillage(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1 md:col-span-2">
+                  <label className="font-bold text-slate-500">Full Address</label>
+                  <input
+                    type="text"
+                    required
+                    value={editAddress}
+                    onChange={(e) => setEditAddress(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Latitude Coordinate</label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    required
+                    value={editLat}
+                    onChange={(e) => setEditLat(Number(e.target.value))}
+                    className="w-full px-3 py-2 border rounded-xl font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Longitude Coordinate</label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    required
+                    value={editLng}
+                    onChange={(e) => setEditLng(Number(e.target.value))}
+                    className="w-full px-3 py-2 border rounded-xl font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Center Phone Number</label>
+                  <input
+                    type="text"
+                    required
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Center Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Medical Officer Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editMoName}
+                    onChange={(e) => setEditMoName(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Medical Officer Phone</label>
+                  <input
+                    type="text"
+                    required
+                    value={editMoPhone}
+                    onChange={(e) => setEditMoPhone(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Scheduled Doctors Count</label>
+                  <input
+                    type="number"
+                    value={editDocs}
+                    onChange={(e) => setEditDocs(Number(e.target.value))}
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Beds Capacity</label>
+                  <input
+                    type="number"
+                    value={editBeds}
+                    onChange={(e) => setEditBeds(Number(e.target.value))}
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Opening Time</label>
+                  <input
+                    type="text"
+                    value={editOpenTime}
+                    onChange={(e) => setEditOpenTime(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Closing Time</label>
+                  <input
+                    type="text"
+                    value={editCloseTime}
+                    onChange={(e) => setEditCloseTime(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">Status Check</label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value as any)}
+                    className="w-full border rounded-xl px-2.5 py-2 cursor-pointer"
+                  >
+                    <option value="Healthy">Healthy</option>
+                    <option value="Needs Attention">Needs Attention</option>
+                    <option value="Critical">Critical</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setSelectedCenter(null);
+                  }}
+                  className="px-4 py-2 border rounded-xl hover:bg-slate-50 text-slate-655 font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-brand-blue hover:bg-brand-darkBlue text-white font-bold rounded-xl shadow"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* MODAL 5: Credentials Display Modal */}
+      {credentialsModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border rounded-apex max-w-md w-full p-6 space-y-4 shadow-apex text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+              <CheckCircle2 className="h-6 w-6" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="font-extrabold text-base text-slate-800">Health Center Created Successfully</h3>
+              <h4 className="font-bold text-xs text-slate-400 -mt-1">Staff Login Created Successfully</h4>
+              <p className="text-xs text-slate-500 font-medium">
+                A secure login account has been registered for the facility staff operator.
+              </p>
+            </div>
+            
+            <div className="bg-slate-50 p-4 border rounded-xl text-left text-xs space-y-2 font-mono">
+              <div>
+                <span className="text-[10px] text-slate-450 block font-sans font-bold uppercase">Staff Email Address</span>
+                <span className="font-bold text-slate-700 select-all">{credentialsModal.email}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-450 block font-sans font-bold uppercase">Temporary Password</span>
+                <span className="font-bold text-slate-700 select-all">{credentialsModal.password}</span>
+              </div>
+            </div>
+
+            <p className="text-[10px] text-brand-orange font-bold font-sans">
+              ⚠️ Share these credentials securely. The password is not stored in Firestore.
+            </p>
+
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(`Email: ${credentialsModal.email}\nPassword: ${credentialsModal.password}`);
+                  alert("Credentials copied to clipboard!");
+                }}
+                className="py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-extrabold text-[10px] rounded-xl transition-all flex flex-col items-center justify-center gap-1.5 shadow-sm"
+              >
+                Copy Credentials
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const printWindow = window.open('', '_blank');
+                  if (printWindow) {
+                    printWindow.document.write(`
+                      <html>
+                        <head>
+                          <title>Credentials - ${credentialsModal.name}</title>
+                          <style>
+                            body { font-family: sans-serif; padding: 40px; color: #333; }
+                            .card { border: 2px dashed #000; padding: 20px; max-width: 400px; margin: auto; }
+                            h2 { margin-top: 0; color: #0f52ba; }
+                            .field { margin: 15px 0; }
+                            .label { font-size: 10px; text-transform: uppercase; color: #777; font-weight: bold; }
+                            .value { font-size: 16px; font-weight: bold; font-family: monospace; }
+                          </style>
+                        </head>
+                        <body>
+                          <div class="card">
+                            <h2>HealthFlow AI Credentials</h2>
+                            <p>Facility: <strong>${credentialsModal.name}</strong></p>
+                            <hr />
+                            <div class="field">
+                              <div class="label">Staff Login Email</div>
+                              <div class="value">${credentialsModal.email}</div>
+                            </div>
+                            <div class="field">
+                              <div class="label">Temporary Password</div>
+                              <div class="value">${credentialsModal.password}</div>
+                            </div>
+                          </div>
+                          <script>
+                            window.onload = function() { window.print(); window.close(); }
+                          </script>
+                        </body>
+                      </html>
+                    `);
+                    printWindow.document.close();
+                  }
+                }}
+                className="py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-extrabold text-[10px] rounded-xl transition-all flex flex-col items-center justify-center gap-1.5 shadow-sm"
+              >
+                Print Credentials
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const authStore = useAuthStore.getState();
+                    await authStore.resetPasswordEmail(credentialsModal.email);
+                    alert(`Password reset instructions sent to ${credentialsModal.email}!`);
+                  } catch (err: any) {
+                    alert("Failed to send reset email: " + err.message);
+                  }
+                }}
+                className="py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-extrabold text-[10px] rounded-xl transition-all flex flex-col items-center justify-center gap-1.5 shadow-sm"
+              >
+                Send Reset Email
+              </button>
+            </div>
+
+            <button
+              onClick={() => setCredentialsModal(null)}
+              className="w-full py-2.5 bg-brand-blue hover:bg-brand-darkBlue text-white font-bold text-xs rounded-xl shadow transition-colors mt-2"
+            >
+              Understand & Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Simple inline Chevron icons to prevent missing imports
+const ChevronLeft: React.FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+  </svg>
+);
+
+const ChevronRight: React.FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+  </svg>
+);
+
+export default PhcListPage;
