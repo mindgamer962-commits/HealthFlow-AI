@@ -280,7 +280,7 @@ export const useFootfallStore = create<FootfallState>((set, get) => ({
             'X-Title': 'HealthFlow AI'
           },
           body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
+            model: "google/gemini-2.5-flash:free",
             messages: [{ role: "user", content: promptText }],
             max_tokens: 1000
           })
