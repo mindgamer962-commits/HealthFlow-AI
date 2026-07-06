@@ -408,7 +408,7 @@ export const useLabStore = create<LabState>((set, get) => ({
             'X-Title': 'HealthFlow AI'
           },
           body: JSON.stringify({
-            model: "meta-llama/llama-3.3-70b-instruct:free",
+            model: "openai/gpt-oss-120b:free",
             messages: [{ role: "user", content: promptText }],
             max_tokens: 1000
           })
