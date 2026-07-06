@@ -747,7 +747,7 @@ export const useMedicineStore = create<MedicineState>((set, get) => ({
           body: JSON.stringify({
             model: "google/gemini-2.5-flash",
             messages: [{ role: "user", content: promptText }],
-            max_tokens: 1500
+            max_tokens: 1000
           })
         });
         const json = await response.json();
