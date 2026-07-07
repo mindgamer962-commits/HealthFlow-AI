@@ -292,7 +292,7 @@ export const useFootfallStore = create<FootfallState>((set, get) => ({
           throw new Error("OpenRouter error: " + JSON.stringify(json.error || json));
         }
       } else {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
