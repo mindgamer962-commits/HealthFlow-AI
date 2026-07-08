@@ -115,14 +115,14 @@ export const DoctorWorkforcePage: React.FC = () => {
   };
 
   const activePhcId = useMemo(() => {
-    if (user?.role === 'PHC Staff') {
+    if (user?.role === 'PHC Staff' || user?.role === 'CHC Staff') {
       return user.phcId || 'phc-1';
     }
     return selectedCenterId;
   }, [user, selectedCenterId]);
 
   useEffect(() => {
-    if (user?.role === 'PHC Staff') {
+    if (user?.role === 'PHC Staff' || user?.role === 'CHC Staff') {
       setActiveTab('attendance');
     }
   }, [user]);

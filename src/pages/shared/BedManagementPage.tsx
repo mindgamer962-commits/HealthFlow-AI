@@ -85,7 +85,7 @@ export const BedManagementPage: React.FC = () => {
 
   // Determine current active PHC target
   const activePhcId = useMemo(() => {
-    if (user?.role === 'PHC Staff') {
+    if (user?.role === 'PHC Staff' || user?.role === 'CHC Staff') {
       return user.phcId || 'phc-1';
     }
     return selectedCenterId;
@@ -93,7 +93,7 @@ export const BedManagementPage: React.FC = () => {
 
   // Set default view on load
   useEffect(() => {
-    if (user?.role === 'PHC Staff') {
+    if (user?.role === 'PHC Staff' || user?.role === 'CHC Staff') {
       setActiveTab('my-phc');
     }
   }, [user]);
@@ -380,7 +380,7 @@ export const BedManagementPage: React.FC = () => {
             activeTab === 'my-phc' ? 'border-brand-blue text-brand-blue' : 'border-transparent text-slate-400'
           }`}
         >
-          {user?.role === 'PHC Staff' ? 'My Facility Registers' : 'Facility Analytics'}
+          {(user?.role === 'PHC Staff' || user?.role === 'CHC Staff') ? 'My Facility Registers' : 'Facility Analytics'}
         </button>
         <button
           onClick={() => setActiveTab('visuals')}

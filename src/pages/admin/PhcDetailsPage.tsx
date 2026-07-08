@@ -32,6 +32,7 @@ import { usePhcStore } from '../../store/phcStore';
 import { useAuthStore } from '../../store/authStore';
 import { useMedicineStore } from '../../store/medicineStore';
 import { useUserStore } from '../../store/userStore';
+import { useBedStore } from '../../store/bedStore';
 import { StatChart } from '../../components/charts/StatChart';
 import { db, IS_MOCK_ENV } from '../../config/firebase';
 import {
@@ -114,10 +115,12 @@ export const PhcDetailsPage: React.FC = () => {
     const unsubCenters = subscribeToCenters();
     const unsubMeds = subscribeToMedicineData();
     const unsubUsers = useUserStore.getState().subscribeToUsers();
+    const unsubBeds = useBedStore.getState().subscribeToBeds();
     return () => {
       unsubCenters();
       unsubMeds();
       unsubUsers();
+      unsubBeds();
     };
   }, []);
 

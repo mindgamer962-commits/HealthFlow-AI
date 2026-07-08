@@ -145,7 +145,7 @@ export const ProfilePage: React.FC = () => {
                   <p>✓ Authorized to configure user logs and run District Map triages.</p>
                 </>
               )}
-              {user.role === 'PHC Staff' && (
+              {(user.role === 'PHC Staff' || user.role === 'CHC Staff') && (
                 <>
                   <p>✓ Authorized to submit daily patient count logs, shift registers, and kit statuses.</p>
                   <p>✓ RESTRICTED: Access limited to {matchedPHC?.name || 'assigned facility'} dashboard update forms.</p>

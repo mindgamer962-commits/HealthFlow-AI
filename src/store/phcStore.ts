@@ -350,6 +350,39 @@ export const usePhcStore = create<PhcState>((set, get) => ({
 
   updateCenter: async (id, updatedFields) => {
     set({ loading: true });
+
+    // Sync to bedStore if totalBeds or bedsOccupied are updated
+    if (updatedFields.totalBeds !== undefined || updatedFields.bedsOccupied !== undefined) {
+      try {
+        const { useBedStore } = await import('./bedStore');
+        const bedStoreState = useBedStore.getState();
+        const centerBeds = bedStoreState.beds.filter(b => b.healthCenterId === id);
+        
+        // Find general bed pool
+        const generalBed = centerBeds.find(b => b.bedType === 'General');
+        
+        // Sum of other bed types (excluding 'General')
+        const otherBeds = centerBeds.filter(b => b.bedType !== 'General');
+        const otherTotal = otherBeds.reduce((sum, b) => sum + b.TotalBeds, 0);
+        const otherOccupied = otherBeds.reduce((sum, b) => sum + b.OccupiedBeds, 0);
+        
+        const targetTotal = updatedFields.totalBeds !== undefined ? updatedFields.totalBeds : (generalBed?.TotalBeds ?? 0) + otherTotal;
+        const targetOccupied = updatedFields.bedsOccupied !== undefined ? updatedFields.bedsOccupied : (generalBed?.OccupiedBeds ?? 0) + otherOccupied;
+        
+        const newGeneralTotal = Math.max(0, targetTotal - otherTotal);
+        const newGeneralOccupied = Math.max(0, Math.min(newGeneralTotal, targetOccupied - otherOccupied));
+        
+        if (!generalBed || generalBed.TotalBeds !== newGeneralTotal || generalBed.OccupiedBeds !== newGeneralOccupied) {
+          await bedStoreState.updateBedPool(id, 'General', {
+            TotalBeds: newGeneralTotal,
+            OccupiedBeds: newGeneralOccupied
+          });
+        }
+      } catch (e) {
+        console.error("Failed to sync bedStore in updateCenter:", e);
+      }
+    }
+
     if (IS_MOCK_ENV) {
       const currentList = loadPersistedCenters();
       const updatedList = currentList.map(c => 

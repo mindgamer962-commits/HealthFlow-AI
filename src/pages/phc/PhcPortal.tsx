@@ -21,6 +21,7 @@ import { usePhcStore } from '../../store/phcStore';
 import { useUserStore } from '../../store/userStore';
 import { useMedicineStore } from '../../store/medicineStore';
 import { useCommandStore } from '../../store/commandStore';
+import { useBedStore } from '../../store/bedStore';
 import { Doctor, LabTestItem } from '../../types';
 
 export const PhcPortal: React.FC = () => {
@@ -59,6 +60,7 @@ export const PhcPortal: React.FC = () => {
     const unsubLabs = subscribeToLabs();
     const unsubMeds = subscribeToMedicineData();
     const unsubCommand = subscribeToCommandActions();
+    const unsubBeds = useBedStore.getState().subscribeToBeds();
     return () => {
       unsubUsers();
       unsubCenters();
@@ -66,6 +68,7 @@ export const PhcPortal: React.FC = () => {
       unsubLabs();
       unsubMeds();
       unsubCommand();
+      unsubBeds();
     };
   }, []);
 
