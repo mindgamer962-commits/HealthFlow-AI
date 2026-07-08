@@ -7,16 +7,20 @@ service cloud.firestore {
       return request.auth != null;
     }
     
+    // Helper: Get user profile document
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
     // Helper: Verify if user has the District Health Administrator role
     function isAdmin() {
       return isSignedIn() && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'District Health Administrator';
+        getUserData().role == 'District Health Administrator';
     }
 
     // Users Collection rules
     match /users/{userId} {
-      // Admin can manage all profiles; users can only read and update their own document
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow create: if isAdmin();
       allow update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
@@ -25,7 +29,6 @@ service cloud.firestore {
 
     // Health Centers Collection rules
     match /health_centers/{centerId} {
-      // All authenticated users can query center capacities, but only admin can manage them
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
@@ -38,44 +41,50 @@ service cloud.firestore {
 
     // Medicine Stock records rules
     match /medicine_stock/{stockId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow read: if isSignedIn() && (isAdmin() || resource.data.phcId == getUserData().phcId);
+      allow create: if isSignedIn() && (isAdmin() || request.resource.data.phcId == getUserData().phcId);
+      allow update: if isSignedIn() && (isAdmin() || (resource.data.phcId == getUserData().phcId && request.resource.data.phcId == getUserData().phcId));
+      allow delete: if isAdmin();
     }
 
     // Stock Transactions rules
     match /stock_transactions/{transactionId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow read: if isSignedIn() && (isAdmin() || resource.data.phcId == getUserData().phcId);
+      allow create: if isSignedIn() && (isAdmin() || request.resource.data.phcId == getUserData().phcId);
+      allow update: if isSignedIn() && (isAdmin() || (resource.data.phcId == getUserData().phcId && request.resource.data.phcId == getUserData().phcId));
+      allow delete: if isAdmin();
     }
 
     // Stock Transfer Requests rules
     match /stock_transfer_requests/{requestId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow read: if isSignedIn() && (isAdmin() || resource.data.destPhcId == getUserData().phcId || resource.data.srcPhcId == getUserData().phcId);
+      allow create: if isSignedIn() && (isAdmin() || request.resource.data.srcPhcId == getUserData().phcId || request.resource.data.destPhcId == getUserData().phcId);
+      allow update: if isSignedIn() && (isAdmin() || (resource.data.destPhcId == getUserData().phcId || resource.data.srcPhcId == getUserData().phcId));
+      allow delete: if isAdmin();
     }
 
     // Stock Predictions rules
     match /stock_predictions/{predictionId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow read: if isSignedIn() && (isAdmin() || resource.data.phcId == getUserData().phcId);
+      allow write: if isAdmin();
     }
 
     // Doctors and Roster rules
     match /doctors/{doctorId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isSignedIn() && (isAdmin() || (resource != null && resource.data.phcId == getUserData().phcId) || (request.resource != null && request.resource.data.phcId == getUserData().phcId));
     }
 
     // Lab Tests status rules
     match /lab_tests/{testId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isSignedIn() && (isAdmin() || (resource != null && resource.data.phcId == getUserData().phcId) || (request.resource != null && request.resource.data.phcId == getUserData().phcId));
     }
 
     // Daily Metrics history rules
     match /daily_metrics/{metricId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow read: if isSignedIn() && (isAdmin() || resource.data.phcId == getUserData().phcId);
+      allow write: if isSignedIn() && (isAdmin() || request.resource.data.phcId == getUserData().phcId);
     }
   }
 }

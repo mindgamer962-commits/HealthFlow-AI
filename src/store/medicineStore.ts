@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { Medicine, MedicineStock, StockTransaction, StockPrediction, StockTransferRequest } from '../types';
 import { db, IS_MOCK_ENV, firebaseConfig } from '../config/firebase';
-import { collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, getDocs } from 'firebase/firestore';
+import { collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, getDocs, query, where } from 'firebase/firestore';
 import { useFootfallStore } from './footfallStore';
+import { useAuthStore } from './authStore';
 
 interface MedicineState {
   medicines: Medicine[];
@@ -287,6 +288,11 @@ export const useMedicineStore = create<MedicineState>((set, get) => ({
     }
 
     set({ loading: true });
+
+    // Retrieve active user profile role & clinic ID to enforce data boundary
+    const user = useAuthStore.getState().user;
+    const isStaff = user?.role === 'PHC Staff' || user?.role === 'CHC Staff';
+    const staffPhcId = user?.phcId;
     
     const unsubMeds = onSnapshot(collection(db, 'medicines'), (snapshot) => {
       const list: Medicine[] = [];
@@ -294,25 +300,45 @@ export const useMedicineStore = create<MedicineState>((set, get) => ({
       set({ medicines: list });
     });
 
-    const unsubStocks = onSnapshot(collection(db, 'medicine_stock'), (snapshot) => {
+    const stockCollection = collection(db, 'medicine_stock');
+    const stockQuery = isStaff && staffPhcId
+      ? query(stockCollection, where('phcId', '==', staffPhcId))
+      : stockCollection;
+
+    const unsubStocks = onSnapshot(stockQuery, (snapshot) => {
       const list: MedicineStock[] = [];
       snapshot.forEach(doc => list.push(doc.data() as MedicineStock));
       set({ stocks: list });
     });
 
-    const unsubTx = onSnapshot(collection(db, 'stock_transactions'), (snapshot) => {
+    const txCollection = collection(db, 'stock_transactions');
+    const txQuery = isStaff && staffPhcId
+      ? query(txCollection, where('phcId', '==', staffPhcId))
+      : txCollection;
+
+    const unsubTx = onSnapshot(txQuery, (snapshot) => {
       const list: StockTransaction[] = [];
       snapshot.forEach(doc => list.push(doc.data() as StockTransaction));
       set({ transactions: list });
     });
 
-    const unsubTransfers = onSnapshot(collection(db, 'stock_transfer_requests'), (snapshot) => {
+    const transferCollection = collection(db, 'stock_transfer_requests');
+    const transferQuery = isStaff && staffPhcId
+      ? query(transferCollection, where('destPhcId', '==', staffPhcId))
+      : transferCollection;
+
+    const unsubTransfers = onSnapshot(transferQuery, (snapshot) => {
       const list: StockTransferRequest[] = [];
       snapshot.forEach(doc => list.push(doc.data() as StockTransferRequest));
       set({ transfers: list });
     });
 
-    const unsubPredictions = onSnapshot(collection(db, 'stock_predictions'), (snapshot) => {
+    const predictionCollection = collection(db, 'stock_predictions');
+    const predictionQuery = isStaff && staffPhcId
+      ? query(predictionCollection, where('phcId', '==', staffPhcId))
+      : predictionCollection;
+
+    const unsubPredictions = onSnapshot(predictionQuery, (snapshot) => {
       const list: StockPrediction[] = [];
       snapshot.forEach(doc => list.push(doc.data() as StockPrediction));
       set({ predictions: list, loading: false });
