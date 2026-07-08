@@ -224,6 +224,27 @@ export const PhcListPage: React.FC = () => {
           }
         }
 
+        // 3b. Seed default lab diagnostic kits (lab_tests collection)
+        const labKits = [
+          { id: `lab-${hc.centerId}-1`, name: 'Malaria Rapid Test Kit', available: true, dailyCapacity: 30, testsPending: 2, status: 'Good' as const, phcId: hc.centerId },
+          { id: `lab-${hc.centerId}-2`, name: 'Complete Blood Count (CBC)', available: true, dailyCapacity: 15, testsPending: 8, status: 'Good' as const, phcId: hc.centerId },
+          { id: `lab-${hc.centerId}-3`, name: 'Pregnancy Test Kit (hCG)', available: true, dailyCapacity: 50, testsPending: 1, status: 'Good' as const, phcId: hc.centerId },
+          { id: `lab-${hc.centerId}-4`, name: 'Widal (Typhoid Test)', available: true, dailyCapacity: 20, testsPending: 5, status: 'Good' as const, phcId: hc.centerId }
+        ];
+
+        for (const lab of labKits) {
+          if (IS_MOCK_ENV) {
+            const current = localStorage.getItem('healthflow_labs') || '[]';
+            const list = JSON.parse(current);
+            if (!list.some((l: any) => l.id === lab.id)) {
+              list.push(lab);
+              localStorage.setItem('healthflow_labs', JSON.stringify(list));
+            }
+          } else {
+            await setDoc(doc(db, 'lab_tests', lab.id), lab);
+          }
+        }
+
         // 4. Initialize default equipment
         const defaultEquipment = [
           { equipmentId: `eq-${hc.centerId}-cbc`, healthCenterId: hc.centerId, equipmentName: 'Hematology Analyzer', status: 'Working' as const, installationDate: '2023-01-10', lastServiceDate: '2026-03-01', nextServiceDate: '2026-09-01', manufacturer: 'Sysmex' },
@@ -286,23 +307,55 @@ export const PhcListPage: React.FC = () => {
         }
       }
 
-      // 7. Seed Doctors
-      const defaultDocs = [
-        { doctorId: 'doc-1', doctorName: 'Dr. Sarah Lyngdoh', photo: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=150', specialization: 'General Medicine', qualification: 'MBBS, MD', registrationNumber: 'MCI-12345', phone: '+91-94361-22456', email: 'sarah.lyngdoh@healthflow.gov.in', assignedHealthCenter: 'phc-1', joiningDate: '2023-05-10', employmentType: 'Full-time' as const, status: 'Active' as const },
-        { doctorId: 'doc-2', doctorName: 'Dr. John Mawlong', photo: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=150', specialization: 'Pediatrics', qualification: 'MBBS, DCH', registrationNumber: 'MCI-88776', phone: '+91-98630-44567', email: 'john.mawlong@healthflow.gov.in', assignedHealthCenter: 'phc-2', joiningDate: '2024-02-15', employmentType: 'Full-time' as const, status: 'Active' as const },
-        { doctorId: 'doc-3', doctorName: 'Dr. Wanboklang Kurkalang', photo: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&q=80&w=150', specialization: 'Gynecology', qualification: 'MBBS, MD (OBG)', registrationNumber: 'MCI-99001', phone: '+91-94021-99881', email: 'wanbok.kur@healthflow.gov.in', assignedHealthCenter: 'phc-3', joiningDate: '2022-09-01', employmentType: 'Full-time' as const, status: 'Active' as const }
+      // 7. Seed 5 Doctors for each clinic
+      const specs = ['General Medicine', 'Pediatrics', 'Gynecology', 'General Surgery', 'Cardiology'];
+      const quals = ['MBBS, MD', 'MBBS, DCH', 'MBBS, MD (OBG)', 'MBBS, MS', 'MBBS, MD, DM'];
+      const doctorNamesPool = [
+        ['Dr. Sarah Lyngdoh', 'Dr. John Mawlong', 'Dr. Wanboklang Kurkalang', 'Dr. Daphne Sohkhlet', 'Dr. Sildora Nongrum'],
+        ['Dr. Ribor Syiem', 'Dr. Badap Rani', 'Dr. Rebecca Synrem', 'Dr. V. Basaiawmoit', 'Dr. P. Roy'],
+        ['Dr. K. Dkhar', 'Dr. R. Marbaniang', 'Dr. J. Shylla', 'Dr. T. Rani', 'Dr. S. Sangma']
       ];
 
-      for (const d of defaultDocs) {
-        if (IS_MOCK_ENV) {
-          const current = localStorage.getItem('hf_doctors') || '[]';
-          const list = JSON.parse(current);
-          if (!list.some((doc: any) => doc.doctorId === d.doctorId)) {
-            list.push(d);
-            localStorage.setItem('hf_doctors', JSON.stringify(list));
+      let docCounter = 1;
+      for (const hc of centersList) {
+        for (let i = 0; i < 5; i++) {
+          const spec = specs[i];
+          const qual = quals[i];
+          const baseName = doctorNamesPool[docCounter % 3][i];
+          const docName = `${baseName} (${hc.centerName})`;
+          const docId = `doc-${hc.centerId}-${i + 1}`;
+          
+          const docObj = {
+            id: docId,
+            doctorId: docId,
+            name: docName,
+            doctorName: docName,
+            specialization: spec,
+            qualification: qual,
+            registrationNumber: `MCI-${10000 + docCounter}`,
+            phone: `+91-94361-${20000 + docCounter}`,
+            email: `${baseName.toLowerCase().replace(/[^a-z]/g, '')}@healthflow.gov.in`,
+            phcId: hc.centerId,
+            assignedHealthCenter: hc.centerId,
+            attendance: 'Present' as const,
+            attendanceStatus: 'Present' as const,
+            status: 'Active' as const,
+            photo: `https://images.unsplash.com/photo-1559839734?auto=format&fit=crop&q=80&w=150`,
+            joiningDate: '2023-05-10',
+            employmentType: 'Full-time' as const
+          };
+
+          if (IS_MOCK_ENV) {
+            const current = localStorage.getItem('hf_doctors') || '[]';
+            const list = JSON.parse(current);
+            if (!list.some((doc: any) => doc.doctorId === docObj.doctorId)) {
+              list.push(docObj);
+              localStorage.setItem('hf_doctors', JSON.stringify(list));
+            }
+          } else {
+            await setDoc(doc(db, 'doctors', docObj.doctorId), docObj);
           }
-        } else {
-          await setDoc(doc(db, 'doctors', d.doctorId), d);
+          docCounter++;
         }
       }
 
