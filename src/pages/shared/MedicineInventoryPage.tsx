@@ -28,6 +28,8 @@ import { usePhcStore } from '../../store/phcStore';
 import { useAuthStore } from '../../store/authStore';
 import { StatChart } from '../../components/charts/StatChart';
 import { Medicine, MedicineStock } from '../../types';
+import { db, IS_MOCK_ENV } from '../../config/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 export const MedicineInventoryPage: React.FC = () => {
   const navigate = useNavigate();
@@ -92,6 +94,44 @@ export const MedicineInventoryPage: React.FC = () => {
       setNewBatchPhcId(user?.phcId || centers[0].centerId);
     }
   }, [centers, newBatchPhcId, user]);
+
+  // Auto-initialize default medicine stocks if empty for this clinic
+  useEffect(() => {
+    const userPhcId = user?.phcId;
+    if (userPhcId && !loading && stocks.length > 0) {
+      const phcStocks = stocks.filter(s => s.phcId === userPhcId);
+      if (phcStocks.length === 0) {
+        const defaultStocks = [
+          { stockId: `stk-${userPhcId}-1`, medicineId: 'med-1', phcId: userPhcId, batchNumber: 'B-PARA-01', expiryDate: new Date(Date.now() + 30 * 24 * 3600000).toISOString().split('T')[0], currentQuantity: 120, receivedQuantity: 500, issuedQuantity: 380, reservedQuantity: 0, supplier: 'MSMS', purchaseDate: '2026-04-01', purchasePrice: 1.5, lastUpdated: 'Just Now' },
+          { stockId: `stk-${userPhcId}-2`, medicineId: 'med-2', phcId: userPhcId, batchNumber: 'B-AMOX-01', expiryDate: new Date(Date.now() + 15 * 24 * 3600000).toISOString().split('T')[0], currentQuantity: 15, receivedQuantity: 200, issuedQuantity: 185, reservedQuantity: 0, supplier: 'Apex', purchaseDate: '2026-05-01', purchasePrice: 4.0, lastUpdated: 'Just Now' },
+          { stockId: `stk-${userPhcId}-3`, medicineId: 'med-3', phcId: userPhcId, batchNumber: 'B-ORS-01', expiryDate: new Date(Date.now() + 120 * 24 * 3600000).toISOString().split('T')[0], currentQuantity: 8, receivedQuantity: 100, issuedQuantity: 92, reservedQuantity: 0, supplier: 'MSMS', purchaseDate: '2026-06-01', purchasePrice: 2.2, lastUpdated: 'Just Now' }
+        ];
+
+        const initializeStocks = async () => {
+          try {
+            for (const s of defaultStocks) {
+              if (IS_MOCK_ENV) {
+                const current = localStorage.getItem('hf_stocks') || '[]';
+                const list = JSON.parse(current);
+                if (!list.some((st: any) => st.stockId === s.stockId)) {
+                  list.push(s);
+                  localStorage.setItem('hf_stocks', JSON.stringify(list));
+                }
+              } else {
+                await setDoc(doc(db, 'medicine_stock', s.stockId), s);
+              }
+            }
+            // Trigger refresh
+            subscribeToMedicineData();
+          } catch (err) {
+            console.error("Auto-initialization of medicine stocks failed:", err);
+          }
+        };
+
+        initializeStocks();
+      }
+    }
+  }, [user?.phcId, loading, stocks.length]);
   const [newBatchNum, setNewBatchNum] = useState('');
   const [newBatchExpiry, setNewBatchExpiry] = useState('');
   const [newBatchQty, setNewBatchQty] = useState(100);
