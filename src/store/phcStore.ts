@@ -329,16 +329,104 @@ export const usePhcStore = create<PhcState>((set, get) => ({
       isArchived: false
     };
 
+    // Prepare default bed pools
+    const bedTypes = ['General', 'ICU', 'Emergency', 'Isolation', 'Maternity', 'Pediatric'] as const;
+    const defaultBeds = bedTypes.map(t => {
+      const total = t === 'General' ? 10 : t === 'Emergency' ? 4 : 2;
+      return {
+        bedId: `bm-${id}-${t.toLowerCase()}`,
+        healthCenterId: id,
+        bedType: t,
+        TotalBeds: total,
+        OccupiedBeds: 0,
+        AvailableBeds: total,
+        ReservedBeds: 0,
+        MaintenanceBeds: 0,
+        UpdatedBy: 'system-init',
+        UpdatedAt: new Date().toISOString()
+      };
+    });
+
+    // Prepare default lab inventories
+    const defaultTests = [
+      { testId: 't-cbc', testName: 'CBC (Complete Blood Count)', dailyCapacity: 30 },
+      { testId: 't-malaria', testName: 'Malaria Smear Test', dailyCapacity: 25 },
+      { testId: 't-glucose', testName: 'Blood Glucose Test', dailyCapacity: 40 },
+      { testId: 't-xray', testName: 'Chest X-Ray', dailyCapacity: 15 },
+      { testId: 't-widal', testName: 'Typhoid Widal Test', dailyCapacity: 20 }
+    ];
+    const defaultInventories = defaultTests.map(t => ({
+      inventoryId: `inv-${id}-${t.testId}`,
+      healthCenterId: id,
+      testId: t.testId,
+      testName: t.testName,
+      isAvailable: true,
+      dailyCapacity: t.dailyCapacity,
+      todayCompleted: 0,
+      todayPending: 0,
+      reagentStockLevel: 80,
+      updatedAt: new Date().toISOString()
+    }));
+
+    // Prepare default equipment
+    const defaultEquipment = [
+      { equipmentId: `eq-${id}-cbc`, healthCenterId: id, equipmentName: 'Hematology Analyzer', status: 'Working' as const, installationDate: new Date().toISOString().split('T')[0], lastServiceDate: new Date().toISOString().split('T')[0], nextServiceDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], manufacturer: 'Sysmex' },
+      { equipmentId: `eq-${id}-xray`, healthCenterId: id, equipmentName: 'X-Ray Machine', status: 'Working' as const, installationDate: new Date().toISOString().split('T')[0], lastServiceDate: new Date().toISOString().split('T')[0], nextServiceDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], manufacturer: 'GE Health' }
+    ];
+
     if (IS_MOCK_ENV) {
+      // 1. Centers
       const currentList = loadPersistedCenters();
       const updatedList = [...currentList, hc];
       savePersistedCenters(updatedList);
       set({ centers: updatedList.map(convertToLegacyPhc), loading: false });
+
+      // 2. Beds
+      const existingBedsData = localStorage.getItem('healthflow_beds');
+      let existingBeds = [];
+      if (existingBedsData) {
+        try { existingBeds = JSON.parse(existingBedsData); } catch (e) {}
+      }
+      localStorage.setItem('healthflow_beds', JSON.stringify([...existingBeds, ...defaultBeds]));
+
+      // 3. Lab Inventories
+      const existingLabsData = localStorage.getItem('hf_lab_inventories');
+      let existingLabs = [];
+      if (existingLabsData) {
+        try { existingLabs = JSON.parse(existingLabsData); } catch (e) {}
+      }
+      localStorage.setItem('hf_lab_inventories', JSON.stringify([...existingLabs, ...defaultInventories]));
+
+      // 4. Lab Equipment
+      const existingEqData = localStorage.getItem('hf_lab_equipments');
+      let existingEq = [];
+      if (existingEqData) {
+        try { existingEq = JSON.parse(existingEqData); } catch (e) {}
+      }
+      localStorage.setItem('hf_lab_equipments', JSON.stringify([...existingEq, ...defaultEquipment]));
+
       return id;
     }
 
     try {
+      // 1. Centers
       await setDoc(doc(db, 'health_centers', id), hc);
+
+      // 2. Beds
+      for (const bed of defaultBeds) {
+        await setDoc(doc(db, 'bed_management', bed.bedId), bed);
+      }
+
+      // 3. Lab Inventories
+      for (const inv of defaultInventories) {
+        await setDoc(doc(db, 'test_inventory', inv.inventoryId), inv);
+      }
+
+      // 4. Lab Equipment
+      for (const eq of defaultEquipment) {
+        await setDoc(doc(db, 'laboratory_equipment', eq.equipmentId), eq);
+      }
+
       set({ loading: false });
       return id;
     } catch (error) {

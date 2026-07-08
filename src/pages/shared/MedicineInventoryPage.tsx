@@ -54,6 +54,8 @@ export const MedicineInventoryPage: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
+
+
   // UI tabs: 'overview' | 'history' | 'reorder' | 'transfers' | 'master'
   const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'reorder' | 'transfers' | 'master'>('overview');
 
@@ -77,6 +79,19 @@ export const MedicineInventoryPage: React.FC = () => {
   // Form states (Add Stock Batch)
   const [newBatchMedId, setNewBatchMedId] = useState('');
   const [newBatchPhcId, setNewBatchPhcId] = useState('');
+
+  // Pre-fill default selects for new batch stock modal
+  useEffect(() => {
+    if (medicines.length > 0 && !newBatchMedId) {
+      setNewBatchMedId(medicines[0].medicineId);
+    }
+  }, [medicines, newBatchMedId]);
+
+  useEffect(() => {
+    if (centers.length > 0 && !newBatchPhcId) {
+      setNewBatchPhcId(user?.phcId || centers[0].centerId);
+    }
+  }, [centers, newBatchPhcId, user]);
   const [newBatchNum, setNewBatchNum] = useState('');
   const [newBatchExpiry, setNewBatchExpiry] = useState('');
   const [newBatchQty, setNewBatchQty] = useState(100);
@@ -341,13 +356,20 @@ export const MedicineInventoryPage: React.FC = () => {
 
       // Also record transaction
       const selectedMed = medicines.find(m => m.medicineId === newBatchMedId);
+      const targetPhcId = ((user?.role === 'PHC Staff' || user?.role === 'CHC Staff') ? user.phcId : newBatchPhcId) || 'phc-1';
+      const targetPhcName = centers.find(c => c.centerId === targetPhcId)?.centerName || 'Unknown Facility';
+
       await recordTransaction({
         medicineId: newBatchMedId,
-        phcId: ((user?.role === 'PHC Staff' || user?.role === 'CHC Staff') ? user.phcId : newBatchPhcId) || 'phc-1',
+        medicineName: selectedMed?.medicineName || 'Unknown Medicine',
+        batchNumber: newBatchNum,
+        phcId: targetPhcId,
+        phcName: targetPhcName,
         type: 'Stock In',
         quantity: Number(newBatchQty),
         userId: user?.uid || 'unknown',
         userName: user?.name || 'Staff User',
+        performedBy: user?.name || 'Staff User',
         reason: `Initial batch load: ${newBatchNum} received from supplier.`
       });
 
