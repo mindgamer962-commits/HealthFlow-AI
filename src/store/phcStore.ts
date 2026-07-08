@@ -567,21 +567,20 @@ export const usePhcStore = create<PhcState>((set, get) => ({
   },
 
   updateDoctor: async (id, updatedFields) => {
-    set({ loading: true });
+    const currentDocs = get().doctors;
+    const updatedDocs = currentDocs.map(d => d.id === id ? { ...d, ...updatedFields } : d);
+    set({ doctors: updatedDocs });
+
     if (IS_MOCK_ENV) {
-      const list = loadPersistedDoctors();
-      const updated = list.map(d => d.id === id ? { ...d, ...updatedFields } : d);
-      savePersistedDoctors(updated);
-      set({ doctors: updated, loading: false });
+      savePersistedDoctors(updatedDocs);
       return;
     }
 
     try {
       await updateDoc(doc(db, 'doctors', id), updatedFields);
-      set({ loading: false });
     } catch (error) {
-      console.error(error);
-      set({ loading: false });
+      console.error("Firebase update doctor error:", error);
+      set({ doctors: currentDocs }); // revert on error
       throw error;
     }
   },
@@ -627,23 +626,21 @@ export const usePhcStore = create<PhcState>((set, get) => ({
   },
 
   updateLabAvailability: async (id, available) => {
-    set({ loading: true });
+    const currentLabs = get().labs;
     const status: 'Good' | 'Warning' | 'Critical' = available ? 'Good' : 'Critical';
+    const updatedLabs = currentLabs.map(l => l.id === id ? { ...l, available, status } : l);
+    set({ labs: updatedLabs });
 
     if (IS_MOCK_ENV) {
-      const list = loadPersistedLabs();
-      const updated = list.map(l => l.id === id ? { ...l, available, status } : l);
-      savePersistedLabs(updated);
-      set({ labs: updated, loading: false });
+      savePersistedLabs(updatedLabs);
       return;
     }
 
     try {
       await updateDoc(doc(db, 'lab_tests', id), { available, status });
-      set({ loading: false });
     } catch (error) {
-      console.error(error);
-      set({ loading: false });
+      console.error("Firebase update lab availability error:", error);
+      set({ labs: currentLabs }); // revert on error
       throw error;
     }
   }
