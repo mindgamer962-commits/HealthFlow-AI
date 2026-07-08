@@ -69,6 +69,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
           if (userDocSnap.exists()) {
             const userData = userDocSnap.data() as User;
+            const isStaff = userData.role === 'PHC Staff' || userData.role === 'CHC Staff';
+            if (isStaff && !userData.phcId) {
+              userData.phcId = userData.email?.includes('staff2') ? 'phc-2' : 'phc-1';
+              await updateDoc(userDocRef, { phcId: userData.phcId });
+            }
             set({
               user: userData,
               isAuthenticated: true,
@@ -83,6 +88,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
               name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
               email: firebaseUser.email || '',
               role: isStaff ? 'PHC Staff' : 'District Health Administrator',
+              phcId: firebaseUser.email?.includes('staff2') ? 'phc-2' : isStaff ? 'phc-1' : undefined,
               isActive: true,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
