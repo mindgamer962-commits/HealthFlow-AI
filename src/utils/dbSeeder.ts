@@ -5,15 +5,33 @@ export const autoSeedFirestore = async () => {
   if (IS_MOCK_ENV) return;
 
   try {
-    // Check if database is already seeded
-    const q = query(collection(db, 'health_centers'), limit(1));
-    const querySnapshot = await getDocs(q);
-    if (!querySnapshot.empty) {
-      console.log('Firestore is already seeded.');
+    // 1. Check which collections need seeding
+    const centersRef = collection(db, 'health_centers');
+    const centersSnap = await getDocs(query(centersRef, limit(1)));
+    const needCenters = centersSnap.empty;
+
+    const labRef = collection(db, 'lab_tests');
+    const labSnap = await getDocs(query(labRef, limit(1)));
+    const needLabs = labSnap.empty;
+
+    const medRef = collection(db, 'medicines');
+    const medSnap = await getDocs(query(medRef, limit(1)));
+    const needMeds = medSnap.empty;
+
+    const stockRef = collection(db, 'medicine_stock');
+    const stockSnap = await getDocs(query(stockRef, limit(1)));
+    const needStocks = stockSnap.empty;
+
+    const docRef = collection(db, 'doctors');
+    const docSnap = await getDocs(query(docRef, limit(1)));
+    const needDocs = docSnap.empty;
+
+    if (!needCenters && !needLabs && !needMeds && !needStocks && !needDocs) {
+      console.log('Firestore collections are already fully populated.');
       return;
     }
 
-    console.log('Firestore is empty. Starting background auto-seeding...');
+    console.log('Background seeding triggered for collections:', { needCenters, needLabs, needMeds, needStocks, needDocs });
 
     const centersList = [
       { centerId: 'phc-1', centerName: 'Mawphlang PHC', centerType: 'PHC', district: 'East Khasi Hills', taluka: 'Mawphlang', village: 'Mawphlang', address: 'Near Sacred Grove, Mawphlang', latitude: 25.45, longitude: 91.75, phoneNumber: '+91-364-28502', email: 'mawphlang.phc@gov.in', medicalOfficerName: 'Dr. L. Khongwir', medicalOfficerPhone: '+91-94361-02845', totalDoctors: 5, totalNurses: 4, totalStaff: 8, totalBeds: 10, icuBeds: 0, emergencyBeds: 2, currentPatients: 24, status: 'Critical', openingTime: '09:00', closingTime: '17:00', createdBy: 'system-auto-seed', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), medicineHealthScore: 35, labStatusScore: 40, bedsTotal: 10, bedsOccupied: 9, doctorsPresent: 4, doctorsTotal: 5 },
@@ -31,144 +49,161 @@ export const autoSeedFirestore = async () => {
       { centerId: 'chc-3', centerName: 'Central CHC Shillong', centerType: 'CHC', district: 'East Khasi Hills', taluka: 'Mylliem', village: 'Shillong', address: 'Laitumkhrah Main Road', latitude: 25.57, longitude: 91.91, phoneNumber: '+91-364-28603', email: 'central.chc@gov.in', medicalOfficerName: 'Dr. H. Rymbai', medicalOfficerPhone: '+91-94361-02862', totalDoctors: 8, totalNurses: 15, totalStaff: 40, totalBeds: 50, icuBeds: 4, emergencyBeds: 8, currentPatients: 65, status: 'Healthy', openingTime: '00:00', closingTime: '23:59', createdBy: 'system-auto-seed', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), medicineHealthScore: 92, labStatusScore: 94, bedsTotal: 50, bedsOccupied: 15, doctorsPresent: 8, doctorsTotal: 8 }
     ];
 
-    // 1. Seed Centers
-    for (const hc of centersList) {
-      await setDoc(doc(db, 'health_centers', hc.centerId), hc);
+    // 1. Seed Centers, bed pools, lab inventories, equipment
+    if (needCenters) {
+      console.log('Seeding health centers & inventories...');
+      for (const hc of centersList) {
+        await setDoc(doc(db, 'health_centers', hc.centerId), hc);
 
-      // 2. Initialize default bed pools
-      const bedTypes = ['General', 'ICU', 'Emergency', 'Isolation', 'Maternity', 'Pediatric'] as const;
-      const defaultBeds = bedTypes.map(t => {
-        const total = t === 'General' ? hc.totalBeds : t === 'Emergency' ? hc.emergencyBeds : t === 'ICU' ? hc.icuBeds : 2;
-        return {
-          bedId: `bm-${hc.centerId}-${t.toLowerCase()}`,
+        // Bed pools
+        const bedTypes = ['General', 'ICU', 'Emergency', 'Isolation', 'Maternity', 'Pediatric'] as const;
+        const defaultBeds = bedTypes.map(t => {
+          const total = t === 'General' ? hc.totalBeds : t === 'Emergency' ? hc.emergencyBeds : t === 'ICU' ? hc.icuBeds : 2;
+          return {
+            bedId: `bm-${hc.centerId}-${t.toLowerCase()}`,
+            healthCenterId: hc.centerId,
+            bedType: t,
+            TotalBeds: total,
+            OccupiedBeds: t === 'General' ? hc.bedsOccupied : 0,
+            AvailableBeds: t === 'General' ? Math.max(0, total - hc.bedsOccupied) : total,
+            ReservedBeds: 0,
+            MaintenanceBeds: 0,
+            UpdatedBy: 'system-auto-seed',
+            UpdatedAt: new Date().toISOString()
+          };
+        });
+
+        for (const bed of defaultBeds) {
+          await setDoc(doc(db, 'bed_management', bed.bedId), bed);
+        }
+
+        // Lab inventories
+        const defaultTests = [
+          { testId: 't-cbc', testName: 'CBC (Complete Blood Count)', dailyCapacity: 30 },
+          { testId: 't-malaria', testName: 'Malaria Smear Test', dailyCapacity: 25 },
+          { testId: 't-glucose', testName: 'Blood Glucose Test', dailyCapacity: 40 },
+          { testId: 't-xray', testName: 'Chest X-Ray', dailyCapacity: 15 },
+          { testId: 't-widal', testName: 'Typhoid Widal Test', dailyCapacity: 20 }
+        ];
+        const defaultInventories = defaultTests.map(t => ({
+          inventoryId: `inv-${hc.centerId}-${t.testId}`,
           healthCenterId: hc.centerId,
-          bedType: t,
-          TotalBeds: total,
-          OccupiedBeds: t === 'General' ? hc.bedsOccupied : 0,
-          AvailableBeds: t === 'General' ? Math.max(0, total - hc.bedsOccupied) : total,
-          ReservedBeds: 0,
-          MaintenanceBeds: 0,
-          UpdatedBy: 'system-auto-seed',
-          UpdatedAt: new Date().toISOString()
-        };
-      });
+          testId: t.testId,
+          testName: t.testName,
+          isAvailable: !(hc.centerId === 'phc-1' && t.testId === 't-xray'),
+          dailyCapacity: t.dailyCapacity,
+          todayCompleted: Math.floor(Math.random() * 10) + 12,
+          todayPending: Math.floor(Math.random() * 5) + 1,
+          reagentStockLevel: 70 + Math.floor(Math.random() * 25),
+          updatedAt: new Date().toISOString()
+        }));
 
-      for (const bed of defaultBeds) {
-        await setDoc(doc(db, 'bed_management', bed.bedId), bed);
-      }
+        for (const inv of defaultInventories) {
+          await setDoc(doc(db, 'test_inventory', inv.inventoryId), inv);
+        }
 
-      // 3. Initialize default lab inventories
-      const defaultTests = [
-        { testId: 't-cbc', testName: 'CBC (Complete Blood Count)', dailyCapacity: 30 },
-        { testId: 't-malaria', testName: 'Malaria Smear Test', dailyCapacity: 25 },
-        { testId: 't-glucose', testName: 'Blood Glucose Test', dailyCapacity: 40 },
-        { testId: 't-xray', testName: 'Chest X-Ray', dailyCapacity: 15 },
-        { testId: 't-widal', testName: 'Typhoid Widal Test', dailyCapacity: 20 }
-      ];
-      const defaultInventories = defaultTests.map(t => ({
-        inventoryId: `inv-${hc.centerId}-${t.testId}`,
-        healthCenterId: hc.centerId,
-        testId: t.testId,
-        testName: t.testName,
-        isAvailable: !(hc.centerId === 'phc-1' && t.testId === 't-xray'),
-        dailyCapacity: t.dailyCapacity,
-        todayCompleted: Math.floor(Math.random() * 10) + 12,
-        todayPending: Math.floor(Math.random() * 5) + 1,
-        reagentStockLevel: 70 + Math.floor(Math.random() * 25),
-        updatedAt: new Date().toISOString()
-      }));
+        // Equipment
+        const defaultEquipment = [
+          { equipmentId: `eq-${hc.centerId}-cbc`, healthCenterId: hc.centerId, equipmentName: 'Hematology Analyzer', status: 'Working' as const, installationDate: '2023-01-10', lastServiceDate: '2026-03-01', nextServiceDate: '2026-09-01', manufacturer: 'Sysmex' },
+          { equipmentId: `eq-${hc.centerId}-xray`, healthCenterId: hc.centerId, equipmentName: 'X-Ray Machine', status: hc.centerId === 'phc-1' ? ('Offline' as const) : ('Working' as const), installationDate: '2021-06-15', lastServiceDate: '2025-11-20', nextServiceDate: '2026-05-20', manufacturer: 'Siemens' }
+        ];
 
-      for (const inv of defaultInventories) {
-        await setDoc(doc(db, 'test_inventory', inv.inventoryId), inv);
-      }
-
-      // 4. Seed default lab diagnostic kits (lab_tests collection)
-      const labKits = [
-        { id: `lab-${hc.centerId}-1`, name: 'Malaria Rapid Test Kit', available: true, dailyCapacity: 30, testsPending: 2, status: 'Good' as const, phcId: hc.centerId },
-        { id: `lab-${hc.centerId}-2`, name: 'Complete Blood Count (CBC)', available: true, dailyCapacity: 15, testsPending: 8, status: 'Good' as const, phcId: hc.centerId },
-        { id: `lab-${hc.centerId}-3`, name: 'Pregnancy Test Kit (hCG)', available: true, dailyCapacity: 50, testsPending: 1, status: 'Good' as const, phcId: hc.centerId },
-        { id: `lab-${hc.centerId}-4`, name: 'Widal (Typhoid Test)', available: true, dailyCapacity: 20, testsPending: 5, status: 'Good' as const, phcId: hc.centerId }
-      ];
-
-      for (const lab of labKits) {
-        await setDoc(doc(db, 'lab_tests', lab.id), lab);
-      }
-
-      // 5. Initialize default equipment
-      const defaultEquipment = [
-        { equipmentId: `eq-${hc.centerId}-cbc`, healthCenterId: hc.centerId, equipmentName: 'Hematology Analyzer', status: 'Working' as const, installationDate: '2023-01-10', lastServiceDate: '2026-03-01', nextServiceDate: '2026-09-01', manufacturer: 'Sysmex' },
-        { equipmentId: `eq-${hc.centerId}-xray`, healthCenterId: hc.centerId, equipmentName: 'X-Ray Machine', status: hc.centerId === 'phc-1' ? ('Offline' as const) : ('Working' as const), installationDate: '2021-06-15', lastServiceDate: '2025-11-20', nextServiceDate: '2026-05-20', manufacturer: 'Siemens' }
-      ];
-
-      for (const eq of defaultEquipment) {
-        await setDoc(doc(db, 'laboratory_equipment', eq.equipmentId), eq);
+        for (const eq of defaultEquipment) {
+          await setDoc(doc(db, 'laboratory_equipment', eq.equipmentId), eq);
+        }
       }
     }
 
-    // 6. Seed default medicines index
-    const defaultMeds = [
-      { medicineId: 'med-1', medicineName: 'Paracetamol 500mg', genericName: 'Acetaminophen', brandName: 'Crocin', category: 'Analgesics', form: 'Tablet', manufacturer: 'GSK', strength: '500mg', packSize: '10x15 Tablets', minStockLevel: 200, maxStockLevel: 2000, reorderLevel: 500, storageTemp: '20-25C', description: 'Pain and fever reliever.', barcode: '8901', qrCode: 'QR-P' },
-      { medicineId: 'med-2', medicineName: 'Amoxicillin 250mg', genericName: 'Amoxicillin', brandName: 'Novamox', category: 'Antibiotics', form: 'Capsule', manufacturer: 'Alkem', strength: '250mg', packSize: '10x10 Capsules', minStockLevel: 100, maxStockLevel: 1000, reorderLevel: 250, storageTemp: '15-30C', description: 'Bacterial infections.', barcode: '8902', qrCode: 'QR-A' },
-      { medicineId: 'med-3', medicineName: 'Oral Rehydration Salts', genericName: 'ORS WHO formula', brandName: 'Electral', category: 'Rehydration', form: 'Syrup', manufacturer: 'FDC', strength: '21.8g', packSize: '50 Sachets', minStockLevel: 50, maxStockLevel: 500, reorderLevel: 100, storageTemp: 'Below 30C', description: 'Rehydration.', barcode: '8903', qrCode: 'QR-O' }
-    ];
+    // 2. Seed default lab diagnostic kits (lab_tests collection)
+    if (needLabs) {
+      console.log('Seeding lab diagnostic kits...');
+      for (const hc of centersList) {
+        const labKits = [
+          { id: `lab-${hc.centerId}-1`, name: 'Malaria Rapid Test Kit', available: true, dailyCapacity: 30, testsPending: 2, status: 'Good' as const, phcId: hc.centerId },
+          { id: `lab-${hc.centerId}-2`, name: 'Complete Blood Count (CBC)', available: true, dailyCapacity: 15, testsPending: 8, status: 'Good' as const, phcId: hc.centerId },
+          { id: `lab-${hc.centerId}-3`, name: 'Pregnancy Test Kit (hCG)', available: true, dailyCapacity: 50, testsPending: 1, status: 'Good' as const, phcId: hc.centerId },
+          { id: `lab-${hc.centerId}-4`, name: 'Widal (Typhoid Test)', available: true, dailyCapacity: 20, testsPending: 5, status: 'Good' as const, phcId: hc.centerId }
+        ];
 
-    for (const m of defaultMeds) {
-      await setDoc(doc(db, 'medicines', m.medicineId), m);
-    }
-
-    // 7. Seed medicine stocks for each center
-    for (const hc of centersList) {
-      const defaultStocks = [
-        { stockId: `stk-${hc.centerId}-1`, medicineId: 'med-1', phcId: hc.centerId, batchNumber: 'B-PARA-01', expiryDate: new Date(Date.now() + 30 * 24 * 3600000).toISOString().split('T')[0], currentQuantity: 120, receivedQuantity: 500, issuedQuantity: 380, reservedQuantity: 0, supplier: 'MSMS', purchaseDate: '2026-04-01', purchasePrice: 1.5, lastUpdated: 'Just Now' },
-        { stockId: `stk-${hc.centerId}-2`, medicineId: 'med-2', phcId: hc.centerId, batchNumber: 'B-AMOX-01', expiryDate: new Date(Date.now() + 15 * 24 * 3600000).toISOString().split('T')[0], currentQuantity: 15, receivedQuantity: 200, issuedQuantity: 185, reservedQuantity: 0, supplier: 'Apex', purchaseDate: '2026-05-01', purchasePrice: 4.0, lastUpdated: 'Just Now' },
-        { stockId: `stk-${hc.centerId}-3`, medicineId: 'med-3', phcId: hc.centerId, batchNumber: 'B-ORS-01', expiryDate: new Date(Date.now() + 120 * 24 * 3600000).toISOString().split('T')[0], currentQuantity: 8, receivedQuantity: 100, issuedQuantity: 92, reservedQuantity: 0, supplier: 'MSMS', purchaseDate: '2026-06-01', purchasePrice: 2.2, lastUpdated: 'Just Now' }
-      ];
-
-      for (const s of defaultStocks) {
-        await setDoc(doc(db, 'medicine_stock', s.stockId), s);
+        for (const lab of labKits) {
+          await setDoc(doc(db, 'lab_tests', lab.id), lab);
+        }
       }
     }
 
-    // 8. Seed 5 Doctors for each clinic
-    const specs = ['General Medicine', 'Pediatrics', 'Gynecology', 'General Surgery', 'Cardiology'];
-    const quals = ['MBBS, MD', 'MBBS, DCH', 'MBBS, MD (OBG)', 'MBBS, MS', 'MBBS, MD, DM'];
-    const doctorNamesPool = [
-      ['Dr. Sarah Lyngdoh', 'Dr. John Mawlong', 'Dr. Wanboklang Kurkalang', 'Dr. Daphne Sohkhlet', 'Dr. Sildora Nongrum'],
-      ['Dr. Ribor Syiem', 'Dr. Badap Rani', 'Dr. Rebecca Synrem', 'Dr. V. Basaiawmoit', 'Dr. P. Roy'],
-      ['Dr. K. Dkhar', 'Dr. R. Marbaniang', 'Dr. J. Shylla', 'Dr. T. Rani', 'Dr. S. Sangma']
-    ];
+    // 3. Seed default medicines index
+    if (needMeds) {
+      console.log('Seeding master medicines...');
+      const defaultMeds = [
+        { medicineId: 'med-1', medicineName: 'Paracetamol 500mg', genericName: 'Acetaminophen', brandName: 'Crocin', category: 'Analgesics', form: 'Tablet', manufacturer: 'GSK', strength: '500mg', packSize: '10x15 Tablets', minStockLevel: 200, maxStockLevel: 2000, reorderLevel: 500, storageTemp: '20-25C', description: 'Pain and fever reliever.', barcode: '8901', qrCode: 'QR-P' },
+        { medicineId: 'med-2', medicineName: 'Amoxicillin 250mg', genericName: 'Amoxicillin', brandName: 'Novamox', category: 'Antibiotics', form: 'Capsule', manufacturer: 'Alkem', strength: '250mg', packSize: '10x10 Capsules', minStockLevel: 100, maxStockLevel: 1000, reorderLevel: 250, storageTemp: '15-30C', description: 'Bacterial infections.', barcode: '8902', qrCode: 'QR-A' },
+        { medicineId: 'med-3', medicineName: 'Oral Rehydration Salts', genericName: 'ORS WHO formula', brandName: 'Electral', category: 'Rehydration', form: 'Syrup', manufacturer: 'FDC', strength: '21.8g', packSize: '50 Sachets', minStockLevel: 50, maxStockLevel: 500, reorderLevel: 100, storageTemp: 'Below 30C', description: 'Rehydration.', barcode: '8903', qrCode: 'QR-O' }
+      ];
 
-    let docCounter = 1;
-    for (const hc of centersList) {
-      for (let i = 0; i < 5; i++) {
-        const spec = specs[i];
-        const qual = quals[i];
-        const baseName = doctorNamesPool[docCounter % 3][i];
-        const docName = `${baseName} (${hc.centerName})`;
-        const docId = `doc-${hc.centerId}-${i + 1}`;
-        
-        const docObj = {
-          id: docId,
-          doctorId: docId,
-          name: docName,
-          doctorName: docName,
-          specialization: spec,
-          qualification: qual,
-          registrationNumber: `MCI-${10000 + docCounter}`,
-          phone: `+91-94361-${20000 + docCounter}`,
-          email: `${baseName.toLowerCase().replace(/[^a-z]/g, '')}@healthflow.gov.in`,
-          phcId: hc.centerId,
-          assignedHealthCenter: hc.centerId,
-          attendance: 'Present' as const,
-          attendanceStatus: 'Present' as const,
-          status: 'Active' as const,
-          photo: `https://images.unsplash.com/photo-1559839734?auto=format&fit=crop&q=80&w=150`,
-          joiningDate: '2023-05-10',
-          employmentType: 'Full-time' as const
-        };
+      for (const m of defaultMeds) {
+        await setDoc(doc(db, 'medicines', m.medicineId), m);
+      }
+    }
 
-        await setDoc(doc(db, 'doctors', docId), docObj);
-        docCounter++;
+    // 4. Seed medicine stocks for each center
+    if (needStocks) {
+      console.log('Seeding medicine stocks...');
+      for (const hc of centersList) {
+        const defaultStocks = [
+          { stockId: `stk-${hc.centerId}-1`, medicineId: 'med-1', phcId: hc.centerId, batchNumber: 'B-PARA-01', expiryDate: new Date(Date.now() + 30 * 24 * 3600000).toISOString().split('T')[0], currentQuantity: 120, receivedQuantity: 500, issuedQuantity: 380, reservedQuantity: 0, supplier: 'MSMS', purchaseDate: '2026-04-01', purchasePrice: 1.5, lastUpdated: 'Just Now' },
+          { stockId: `stk-${hc.centerId}-2`, medicineId: 'med-2', phcId: hc.centerId, batchNumber: 'B-AMOX-01', expiryDate: new Date(Date.now() + 15 * 24 * 3600000).toISOString().split('T')[0], currentQuantity: 15, receivedQuantity: 200, issuedQuantity: 185, reservedQuantity: 0, supplier: 'Apex', purchaseDate: '2026-05-01', purchasePrice: 4.0, lastUpdated: 'Just Now' },
+          { stockId: `stk-${hc.centerId}-3`, medicineId: 'med-3', phcId: hc.centerId, batchNumber: 'B-ORS-01', expiryDate: new Date(Date.now() + 120 * 24 * 3600000).toISOString().split('T')[0], currentQuantity: 8, receivedQuantity: 100, issuedQuantity: 92, reservedQuantity: 0, supplier: 'MSMS', purchaseDate: '2026-06-01', purchasePrice: 2.2, lastUpdated: 'Just Now' }
+        ];
+
+        for (const s of defaultStocks) {
+          await setDoc(doc(db, 'medicine_stock', s.stockId), s);
+        }
+      }
+    }
+
+    // 5. Seed 5 Doctors for each clinic
+    if (needDocs) {
+      console.log('Seeding 5 doctors per clinic...');
+      const specs = ['General Medicine', 'Pediatrics', 'Gynecology', 'General Surgery', 'Cardiology'];
+      const quals = ['MBBS, MD', 'MBBS, DCH', 'MBBS, MD (OBG)', 'MBBS, MS', 'MBBS, MD, DM'];
+      const doctorNamesPool = [
+        ['Dr. Sarah Lyngdoh', 'Dr. John Mawlong', 'Dr. Wanboklang Kurkalang', 'Dr. Daphne Sohkhlet', 'Dr. Sildora Nongrum'],
+        ['Dr. Ribor Syiem', 'Dr. Badap Rani', 'Dr. Rebecca Synrem', 'Dr. V. Basaiawmoit', 'Dr. P. Roy'],
+        ['Dr. K. Dkhar', 'Dr. R. Marbaniang', 'Dr. J. Shylla', 'Dr. T. Rani', 'Dr. S. Sangma']
+      ];
+
+      let docCounter = 1;
+      for (const hc of centersList) {
+        for (let i = 0; i < 5; i++) {
+          const spec = specs[i];
+          const qual = quals[i];
+          const baseName = doctorNamesPool[docCounter % 3][i];
+          const docName = `${baseName} (${hc.centerName})`;
+          const docId = `doc-${hc.centerId}-${i + 1}`;
+          
+          const docObj = {
+            id: docId,
+            doctorId: docId,
+            name: docName,
+            doctorName: docName,
+            specialization: spec,
+            qualification: qual,
+            registrationNumber: `MCI-${10000 + docCounter}`,
+            phone: `+91-94361-${20000 + docCounter}`,
+            email: `${baseName.toLowerCase().replace(/[^a-z]/g, '')}@healthflow.gov.in`,
+            phcId: hc.centerId,
+            assignedHealthCenter: hc.centerId,
+            attendance: 'Present' as const,
+            attendanceStatus: 'Present' as const,
+            status: 'Active' as const,
+            photo: `https://images.unsplash.com/photo-1559839734?auto=format&fit=crop&q=80&w=150`,
+            joiningDate: '2023-05-10',
+            employmentType: 'Full-time' as const
+          };
+
+          await setDoc(doc(db, 'doctors', docId), docObj);
+          docCounter++;
+        }
       }
     }
 
