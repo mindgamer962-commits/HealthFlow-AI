@@ -50,7 +50,7 @@ export const CopilotPage: React.FC = () => {
   const [inputVal, setInputVal] = useState('');
   const [historySearch, setHistorySearch] = useState('');
   const [isListening, setIsListening] = useState(false);
-  const [speechEnabled, setSpeechEnabled] = useState(true);
+  const [speechEnabled, setSpeechEnabled] = useState(false);
   
   // Officer assignment form states inside chat
   const [assigningActionId, setAssigningActionId] = useState<string | null>(null);
@@ -105,15 +105,7 @@ export const CopilotPage: React.FC = () => {
     return sessions.find(s => s.sessionId === activeSessionId) || sessions[0] || null;
   }, [sessions, activeSessionId]);
 
-  // Trigger speech synthesis when new copilot message lands
-  useEffect(() => {
-    if (activeSession && activeSession.messages.length > 0) {
-      const last = activeSession.messages[activeSession.messages.length - 1];
-      if (last.sender === 'copilot') {
-        speakText(last.content);
-      }
-    }
-  }, [activeSession?.messages.length]);
+
 
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
