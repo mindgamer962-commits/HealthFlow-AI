@@ -5,12 +5,12 @@ import { getFirestore } from 'firebase/firestore';
 // Production config loaded from Vite environment variables (.env)
 // For local testing, mock fallbacks are assigned to avoid runtime crashes.
 export const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDummyKeyHealthFlowBypassForLocalDev",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "healthflow-ai-apex.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "healthflow-ai-apex",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "healthflow-ai-apex.appspot.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "123456789012",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:123456789012:web:abcdef123456"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyANHKWs1xftg5CyC0GoWGvGIXcMgJkpJhc",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "healthflow-ai-1aac3.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "healthflow-ai-1aac3",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "healthflow-ai-1aac3.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "664468255655",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:664468255655:web:201f6f5b9700caa13efc82"
 };
 
 // Check if Firebase is running with dummy values
