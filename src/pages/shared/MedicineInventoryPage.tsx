@@ -97,7 +97,7 @@ export const MedicineInventoryPage: React.FC = () => {
 
   useEffect(() => {
     const userPhcId = user?.phcId;
-    if (userPhcId && !loading) {
+    if (userPhcId && medicines.length > 0) {
       const phcStocks = stocks.filter(s => s.phcId === userPhcId);
       if (phcStocks.length === 0) {
         const defaultStocks = [
@@ -130,7 +130,7 @@ export const MedicineInventoryPage: React.FC = () => {
         initializeStocks();
       }
     }
-  }, [user?.phcId, loading, stocks.length]);
+  }, [user?.phcId, medicines.length, stocks.length]);
   const [newBatchNum, setNewBatchNum] = useState('');
   const [newBatchExpiry, setNewBatchExpiry] = useState('');
   const [newBatchQty, setNewBatchQty] = useState(100);
