@@ -36,7 +36,7 @@ import { doc, setDoc } from 'firebase/firestore';
 export const MedicineInventoryPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { centers } = usePhcStore();
+  const { centers, subscribeToCenters } = usePhcStore();
   const {
     medicines,
     stocks,
@@ -54,8 +54,12 @@ export const MedicineInventoryPage: React.FC = () => {
 
   // Subscribe to live database updates on mount
   useEffect(() => {
-    const unsubscribe = subscribeToMedicineData();
-    return () => unsubscribe();
+    const unsubscribeMeds = subscribeToMedicineData();
+    const unsubscribeCenters = subscribeToCenters();
+    return () => {
+      unsubscribeMeds();
+      unsubscribeCenters();
+    };
   }, []);
 
 
@@ -242,7 +246,8 @@ export const MedicineInventoryPage: React.FC = () => {
   const filteredStocks = useMemo(() => {
     return stocks.filter(stk => {
       // 1. Role Restrictions: PHC/CHC Staff only sees their assigned facility inventory
-      if ((user?.role === 'PHC Staff' || user?.role === 'CHC Staff') && stk.phcId !== user.phcId) {
+      const staffPhcId = user?.phcId || (user?.role === 'PHC Staff' || user?.role === 'CHC Staff' ? 'phc-1' : '');
+      if ((user?.role === 'PHC Staff' || user?.role === 'CHC Staff') && stk.phcId !== staffPhcId) {
         return false;
       }
 
@@ -444,9 +449,12 @@ export const MedicineInventoryPage: React.FC = () => {
   const handleAddBatchSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const staffPhcId = user?.phcId || (user?.role === 'PHC Staff' || user?.role === 'CHC Staff' ? 'phc-1' : '');
+      const targetPhcId = ((user?.role === 'PHC Staff' || user?.role === 'CHC Staff') ? staffPhcId : newBatchPhcId) || 'phc-1';
+
       await addStockBatch({
         medicineId: newBatchMedId,
-        phcId: ((user?.role === 'PHC Staff' || user?.role === 'CHC Staff') ? user.phcId : newBatchPhcId) || 'phc-1',
+        phcId: targetPhcId,
         batchNumber: newBatchNum,
         expiryDate: newBatchExpiry,
         currentQuantity: Number(newBatchQty),
@@ -460,7 +468,6 @@ export const MedicineInventoryPage: React.FC = () => {
 
       // Also record transaction
       const selectedMed = medicines.find(m => m.medicineId === newBatchMedId);
-      const targetPhcId = ((user?.role === 'PHC Staff' || user?.role === 'CHC Staff') ? user.phcId : newBatchPhcId) || 'phc-1';
       const targetPhcName = centers.find(c => c.centerId === targetPhcId)?.centerName || 'Unknown Facility';
 
       await recordTransaction({
@@ -1491,7 +1498,7 @@ export const MedicineInventoryPage: React.FC = () => {
                     <input
                       type="text"
                       disabled
-                      value={centers.find(c => c.centerId === user?.phcId)?.centerName || 'Assigned Center'}
+                      value={centers.find(c => c.centerId === (user?.phcId || 'phc-1'))?.centerName || 'Mawphlang PHC'}
                       className="w-full px-3 py-2 border rounded-xl bg-slate-100 cursor-not-allowed text-slate-500"
                     />
                   </div>
