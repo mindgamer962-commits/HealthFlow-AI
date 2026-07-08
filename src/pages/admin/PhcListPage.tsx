@@ -288,9 +288,9 @@ export const PhcListPage: React.FC = () => {
 
       // 7. Seed Doctors
       const defaultDocs = [
-        { doctorId: 'doc-1', name: 'Dr. Sarah Lyngdoh', specialization: 'General Medicine', phone: '+91-94361-22456', email: 'sarah@healthflow.gov.in', status: 'Active', phcId: 'phc-1', attendanceStatus: 'Present', attendanceRecord: [], createdBy: 'system-seed' },
-        { doctorId: 'doc-2', name: 'Dr. John Wahlang', specialization: 'Pediatrics', phone: '+91-98630-44567', email: 'john@healthflow.gov.in', status: 'Active', phcId: 'phc-1', attendanceStatus: 'Present', attendanceRecord: [], createdBy: 'system-seed' },
-        { doctorId: 'doc-3', name: 'Dr. Rebecca Synrem', specialization: 'General Surgery', phone: '+91-94021-99881', email: 'rebecca@healthflow.gov.in', status: 'Active', phcId: 'phc-2', attendanceStatus: 'On Duty', attendanceRecord: [], createdBy: 'system-seed' }
+        { doctorId: 'doc-1', doctorName: 'Dr. Sarah Lyngdoh', photo: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=150', specialization: 'General Medicine', qualification: 'MBBS, MD', registrationNumber: 'MCI-12345', phone: '+91-94361-22456', email: 'sarah.lyngdoh@healthflow.gov.in', assignedHealthCenter: 'phc-1', joiningDate: '2023-05-10', employmentType: 'Full-time' as const, status: 'Active' as const },
+        { doctorId: 'doc-2', doctorName: 'Dr. John Mawlong', photo: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=150', specialization: 'Pediatrics', qualification: 'MBBS, DCH', registrationNumber: 'MCI-88776', phone: '+91-98630-44567', email: 'john.mawlong@healthflow.gov.in', assignedHealthCenter: 'phc-2', joiningDate: '2024-02-15', employmentType: 'Full-time' as const, status: 'Active' as const },
+        { doctorId: 'doc-3', doctorName: 'Dr. Wanboklang Kurkalang', photo: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&q=80&w=150', specialization: 'Gynecology', qualification: 'MBBS, MD (OBG)', registrationNumber: 'MCI-99001', phone: '+91-94021-99881', email: 'wanbok.kur@healthflow.gov.in', assignedHealthCenter: 'phc-3', joiningDate: '2022-09-01', employmentType: 'Full-time' as const, status: 'Active' as const }
       ];
 
       for (const d of defaultDocs) {

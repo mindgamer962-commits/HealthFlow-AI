@@ -95,10 +95,9 @@ export const MedicineInventoryPage: React.FC = () => {
     }
   }, [centers, newBatchPhcId, user]);
 
-  // Auto-initialize default medicine stocks if empty for this clinic
   useEffect(() => {
     const userPhcId = user?.phcId;
-    if (userPhcId && !loading && stocks.length > 0) {
+    if (userPhcId && !loading) {
       const phcStocks = stocks.filter(s => s.phcId === userPhcId);
       if (phcStocks.length === 0) {
         const defaultStocks = [
