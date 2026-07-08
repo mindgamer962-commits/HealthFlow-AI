@@ -634,6 +634,27 @@ export const PhcListPage: React.FC = () => {
             <span>Print</span>
           </button>
 
+          {/* Seed Database Button (Always visible to Admin for testing and syncing mock data) */}
+          {user?.role === 'District Health Administrator' && (
+            <button
+              onClick={handleSeedDatabase}
+              disabled={isSeeding}
+              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-all-ease shadow disabled:opacity-50 select-none"
+            >
+              {isSeeding ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Seeding...</span>
+                </>
+              ) : (
+                <>
+                  <Database className="h-4 w-4" />
+                  <span>Seed Mock Database</span>
+                </>
+              )}
+            </button>
+          )}
+
           {/* Add Facility Button */}
           {user?.role === 'District Health Administrator' && (
             <button
