@@ -42,6 +42,8 @@ import { usePhcStore } from '../../store/phcStore';
 import { useLabStore, LabRedistributionRecommendation } from '../../store/labStore';
 import { useFootfallStore } from '../../store/footfallStore';
 import { LabEquipment, LabTestInventory } from '../../types';
+import { db, IS_MOCK_ENV } from '../../config/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 const PIE_COLORS = ['#1F5FBF', '#F57C00', '#10B981', '#8B5CF6', '#EC4899', '#6366F1'];
 
@@ -120,6 +122,80 @@ export const LabManagementPage: React.FC = () => {
     if (activePhcId === 'all') return inventories;
     return inventories.filter(i => i.healthCenterId === activePhcId);
   }, [inventories, activePhcId]);
+
+  // Auto-initialize default lab registries if empty for this clinic
+  useEffect(() => {
+    if (activePhcId && activePhcId !== 'all' && !storeLoading && filteredInventories.length === 0) {
+      const defaultTests = [
+        { testId: 't-cbc', testName: 'CBC (Complete Blood Count)', dailyCapacity: 30 },
+        { testId: 't-malaria', testName: 'Malaria Smear Test', dailyCapacity: 25 },
+        { testId: 't-glucose', testName: 'Blood Glucose Test', dailyCapacity: 40 },
+        { testId: 't-xray', testName: 'Chest X-Ray', dailyCapacity: 15 },
+        { testId: 't-widal', testName: 'Typhoid Widal Test', dailyCapacity: 20 }
+      ];
+      
+      const initializeDefaults = async () => {
+        try {
+          // Initialize inventories
+          for (const test of defaultTests) {
+            const invId = `inv-${activePhcId}-${test.testId}`;
+            const invObj = {
+              inventoryId: invId,
+              healthCenterId: activePhcId,
+              testId: test.testId,
+              testName: test.testName,
+              isAvailable: true,
+              dailyCapacity: test.dailyCapacity,
+              todayCompleted: 0,
+              todayPending: 0,
+              reagentStockLevel: 80,
+              updatedAt: new Date().toISOString()
+            };
+            if (IS_MOCK_ENV) {
+              const current = localStorage.getItem('hf_lab_inventories');
+              let list = [];
+              if (current) {
+                try { list = JSON.parse(current); } catch (e) {}
+              }
+              if (!list.some((i: any) => i.inventoryId === invId)) {
+                localStorage.setItem('hf_lab_inventories', JSON.stringify([...list, invObj]));
+              }
+            } else {
+              await setDoc(doc(db, 'test_inventory', invId), invObj);
+            }
+          }
+
+          // Initialize equipment
+          const defaultEquipment = [
+            { equipmentId: `eq-${activePhcId}-cbc`, healthCenterId: activePhcId, equipmentName: 'Hematology Analyzer', status: 'Working' as const, installationDate: new Date().toISOString().split('T')[0], lastServiceDate: new Date().toISOString().split('T')[0], nextServiceDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], manufacturer: 'Sysmex' },
+            { equipmentId: `eq-${activePhcId}-xray`, healthCenterId: activePhcId, equipmentName: 'X-Ray Machine', status: 'Working' as const, installationDate: new Date().toISOString().split('T')[0], lastServiceDate: new Date().toISOString().split('T')[0], nextServiceDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], manufacturer: 'GE Health' }
+          ];
+
+          for (const eq of defaultEquipment) {
+            if (IS_MOCK_ENV) {
+              const current = localStorage.getItem('hf_lab_equipments');
+              let list = [];
+              if (current) {
+                try { list = JSON.parse(current); } catch (e) {}
+              }
+              if (!list.some((i: any) => i.equipmentId === eq.equipmentId)) {
+                localStorage.setItem('hf_lab_equipments', JSON.stringify([...list, eq]));
+              }
+            } else {
+              await setDoc(doc(db, 'laboratory_equipment', eq.equipmentId), eq);
+            }
+          }
+
+          // Trigger refresh
+          subscribeToLabs();
+        } catch (err) {
+          console.error("Auto-initialization of lab resources failed:", err);
+        }
+      };
+
+      initializeDefaults();
+    }
+  }, [activePhcId, storeLoading, filteredInventories.length]);
 
   // Filtered equipment
   const filteredEquipment = useMemo(() => {

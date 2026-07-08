@@ -43,6 +43,8 @@ import { usePhcStore } from '../../store/phcStore';
 import { useBedStore, RedistributionRecommendation } from '../../store/bedStore';
 import { useFootfallStore } from '../../store/footfallStore';
 import { BedManagement } from '../../types';
+import { db, IS_MOCK_ENV } from '../../config/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 const PIE_COLORS = ['#1F5FBF', '#F57C00', '#10B981', '#8B5CF6', '#EC4899', '#6366F1'];
 
@@ -103,6 +105,53 @@ export const BedManagementPage: React.FC = () => {
     if (activePhcId === 'all') return beds;
     return beds.filter(b => b.healthCenterId === activePhcId);
   }, [beds, activePhcId]);
+
+  // Auto-initialize default bed pools if empty for this clinic
+  useEffect(() => {
+    if (activePhcId && activePhcId !== 'all' && !storeLoading && filteredBeds.length === 0) {
+      const bedTypes = ['General', 'ICU', 'Emergency', 'Isolation', 'Maternity', 'Pediatric'] as const;
+      const defaultBeds = bedTypes.map(t => {
+        const total = t === 'General' ? 10 : t === 'Emergency' ? 4 : 2;
+        return {
+          bedId: `bm-${activePhcId}-${t.toLowerCase()}`,
+          healthCenterId: activePhcId,
+          bedType: t,
+          TotalBeds: total,
+          OccupiedBeds: 0,
+          AvailableBeds: total,
+          ReservedBeds: 0,
+          MaintenanceBeds: 0,
+          UpdatedBy: 'system-init',
+          UpdatedAt: new Date().toISOString()
+        };
+      });
+
+      const initializeBeds = async () => {
+        try {
+          for (const bed of defaultBeds) {
+            if (IS_MOCK_ENV) {
+              const current = localStorage.getItem('healthflow_beds');
+              let list = [];
+              if (current) {
+                try { list = JSON.parse(current); } catch (e) {}
+              }
+              if (!list.some((b: any) => b.bedId === bed.bedId)) {
+                localStorage.setItem('healthflow_beds', JSON.stringify([...list, bed]));
+              }
+            } else {
+              await setDoc(doc(db, 'bed_management', bed.bedId), bed);
+            }
+          }
+          // Trigger refresh
+          subscribeToBeds();
+        } catch (err) {
+          console.error("Auto-initialization of bed pools failed:", err);
+        }
+      };
+
+      initializeBeds();
+    }
+  }, [activePhcId, storeLoading, filteredBeds.length]);
 
   // Calculations for KPI Cards
   const stats = useMemo(() => {
