@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { DashboardLayout } from './components/layout/DashboardLayout';
+import { autoSeedFirestore } from './utils/dbSeeder';
 
 // Auth Pages
 import { LoginPage } from './pages/auth/LoginPage';
@@ -82,6 +83,8 @@ export const App: React.FC = () => {
   React.useEffect(() => {
     // Strip stale dark class to maintain cream white light layout
     document.documentElement.classList.remove('dark');
+    // Start background auto-seeding if Firestore database is empty
+    autoSeedFirestore();
   }, []);
 
   return (
