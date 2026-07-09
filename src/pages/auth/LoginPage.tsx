@@ -65,10 +65,10 @@ export const LoginPage: React.FC = () => {
     setError(null);
     if (role === 'Admin') {
       setEmail('admin@healthflow.gov.in');
-      setPassword('healthflow123');
+      setPassword('password123');
     } else {
       setEmail('staff@healthflow.gov.in');
-      setPassword('healthflow123');
+      setPassword('staff123');
     }
   };
 

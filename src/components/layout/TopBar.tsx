@@ -23,10 +23,10 @@ export const TopBar: React.FC<TopBarProps> = ({ onCopilotToggle }) => {
   const handleRoleChange = async (role: UserRole) => {
     setProfileDropdownOpen(false);
     if (role === 'District Health Administrator') {
-      await login('admin@healthflow.gov.in', 'healthflow123');
+      await login('admin@healthflow.gov.in', 'password123');
       navigate('/dashboard');
     } else {
-      await login('staff@healthflow.gov.in', 'healthflow123');
+      await login('staff@healthflow.gov.in', 'staff123');
       navigate('/phc-portal');
     }
   };
